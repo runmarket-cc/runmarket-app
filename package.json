@@ -5,6 +5,7 @@
   "dependencies": {
     "axios": "^1.16.1",
     "expo": "~56.0.8",
+    "expo-dev-client": "~56.0.18",
     "expo-location": "~56.0.15",
     "expo-router": "~56.2.8",
     "expo-secure-store": "~56.0.4",
