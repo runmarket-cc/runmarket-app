@@ -26,11 +26,6 @@ module.exports = {
         backgroundColor: '#232f3e',
       },
       package: 'cc.runmarket.app',
-      config: {
-        googleMaps: {
-          apiKey: GOOGLE_MAPS_API_KEY,
-        },
-      },
       permissions: [
         'android.permission.ACCESS_FINE_LOCATION',
         'android.permission.ACCESS_COARSE_LOCATION',
@@ -42,7 +37,7 @@ module.exports = {
     plugins: [
       'expo-router',
       'expo-secure-store',
-      'react-native-maps',
+      ['react-native-maps', { androidGoogleMapsApiKey: GOOGLE_MAPS_API_KEY }],
       [
         'expo-location',
         {
