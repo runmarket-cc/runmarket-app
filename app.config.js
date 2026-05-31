@@ -26,7 +26,11 @@ module.exports = {
         backgroundColor: '#232f3e',
       },
       package: 'cc.runmarket.app',
-      googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+      config: {
+        googleMaps: {
+          apiKey: GOOGLE_MAPS_API_KEY,
+        },
+      },
       permissions: [
         'android.permission.ACCESS_FINE_LOCATION',
         'android.permission.ACCESS_COARSE_LOCATION',
