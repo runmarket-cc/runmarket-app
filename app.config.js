@@ -1,5 +1,3 @@
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-
 module.exports = {
   expo: {
     name: '런마켓',
@@ -35,9 +33,10 @@ module.exports = {
       favicon: './assets/favicon.png',
     },
     plugins: [
+      './plugins/withGoogleMapsApiKey.ts',
       'expo-router',
       'expo-secure-store',
-      ['react-native-maps', { androidGoogleMapsApiKey: GOOGLE_MAPS_API_KEY }],
+      'react-native-maps',
       [
         'expo-location',
         {
