@@ -1,24 +1,4 @@
-const { withAndroidManifest } = require('@expo/config-plugins');
-
-// android.config.googleMaps 방식 대신 AndroidManifest.xml에 직접 주입
-const withGoogleMapsApiKey = (config) => {
-  return withAndroidManifest(config, (config) => {
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-    console.log('[withGoogleMapsApiKey] GOOGLE_MAPS_API_KEY:', apiKey ? `set (length: ${apiKey.length})` : 'NOT SET / undefined');
-
-    const app = config.modResults.manifest.application[0];
-    app['meta-data'] = (app['meta-data'] || []).filter(
-      (item) => item.$['android:name'] !== 'com.google.android.geo.API_KEY'
-    );
-    app['meta-data'].push({
-      $: {
-        'android:name': 'com.google.android.geo.API_KEY',
-        'android:value': apiKey || '',
-      },
-    });
-    return config;
-  });
-};
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
 module.exports = {
   expo: {
@@ -46,20 +26,19 @@ module.exports = {
         backgroundColor: '#232f3e',
       },
       package: 'cc.runmarket.app',
+      googleMapsApiKey: GOOGLE_MAPS_API_KEY,
       permissions: [
-        'ACCESS_FINE_LOCATION',
-        'ACCESS_COARSE_LOCATION',
-        'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.ACCESS_FINE_LOCATION',
+        'android.permission.ACCESS_COARSE_LOCATION',
       ],
     },
     web: {
       favicon: './assets/favicon.png',
     },
     plugins: [
-      withGoogleMapsApiKey,
       'expo-router',
       'expo-secure-store',
+      'react-native-maps',
       [
         'expo-location',
         {
