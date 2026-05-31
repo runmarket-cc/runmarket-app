@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import type { RunnerPayload } from '../types';
 
 const WS_BASE = 'wss://pulse.runmarket.cc';
+const RECONNECT_DELAY_MS = 3000;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 interface Options {
   runnerId: string;
@@ -14,29 +16,55 @@ interface Options {
 /**
  * RUNNER용 WebSocket 훅
  * - 연결 후 sendLocation()으로 위치 publish
+ * - 연결 끊김 시 최대 5회 자동 재연결 (3초 간격)
  */
 export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: Options) {
   const wsRef = useRef<WebSocket | null>(null);
+  const attemptsRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountedRef = useRef(false);
 
-  useEffect(() => {
+  const connect = useCallback(() => {
+    if (unmountedRef.current) return;
+
     const url = `${WS_BASE}/ws/runner/${runnerId}?token=${token}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
-    ws.onopen = () => onOpen?.();
-    ws.onclose = () => onClose?.();
+    ws.onopen = () => {
+      attemptsRef.current = 0;
+      onOpen?.();
+    };
+
+    ws.onclose = () => {
+      onClose?.();
+      if (unmountedRef.current) return;
+      if (attemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        attemptsRef.current += 1;
+        console.log(`[RunnerSocket] 재연결 시도 ${attemptsRef.current}/${MAX_RECONNECT_ATTEMPTS}`);
+        timerRef.current = setTimeout(connect, RECONNECT_DELAY_MS);
+      }
+    };
+
     ws.onerror = () => onError?.();
+  }, [runnerId, token, onOpen, onClose, onError]);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    attemptsRef.current = 0;
+    connect();
 
     return () => {
-      ws.close();
+      unmountedRef.current = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [runnerId, token]);
+  }, [connect]);
 
   const sendLocation = useCallback((payload: RunnerPayload) => {
-    const ws = wsRef.current;
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload));
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(payload));
     }
   }, []);
 
