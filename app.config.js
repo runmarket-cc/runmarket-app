@@ -1,3 +1,22 @@
+const { withAndroidManifest } = require('@expo/config-plugins');
+
+// android.config.googleMaps 방식 대신 AndroidManifest.xml에 직접 주입
+const withGoogleMapsApiKey = (config) => {
+  return withAndroidManifest(config, (config) => {
+    const app = config.modResults.manifest.application[0];
+    app['meta-data'] = (app['meta-data'] || []).filter(
+      (item) => item.$['android:name'] !== 'com.google.android.geo.API_KEY'
+    );
+    app['meta-data'].push({
+      $: {
+        'android:name': 'com.google.android.geo.API_KEY',
+        'android:value': process.env.GOOGLE_MAPS_API_KEY || '',
+      },
+    });
+    return config;
+  });
+};
+
 module.exports = {
   expo: {
     name: '런마켓',
@@ -17,12 +36,6 @@ module.exports = {
       },
     },
     android: {
-      config: {
-        googleMaps: {
-          // EAS 환경변수에서 주입 — git에는 키 값이 노출되지 않음
-          apiKey: process.env.GOOGLE_MAPS_API_KEY,
-        },
-      },
       adaptiveIcon: {
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundImage: './assets/android-icon-background.png',
@@ -41,6 +54,7 @@ module.exports = {
       favicon: './assets/favicon.png',
     },
     plugins: [
+      withGoogleMapsApiKey,
       'expo-router',
       'expo-secure-store',
       [
