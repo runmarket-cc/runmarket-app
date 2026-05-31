@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { SpectatorMessage, RunnerPayload } from '../types';
 
 const WS_BASE = 'wss://pulse.runmarket.cc';
-const RECONNECT_DELAY_MS = 3000;
+const RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 export type RunnerState = RunnerPayload & { runnerId: string; updatedAt: number };
