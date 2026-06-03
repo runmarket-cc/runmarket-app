@@ -115,7 +115,16 @@ export default function SpectatorActiveScreen() {
           ) : (
             <ScrollView style={styles.runnerList} showsVerticalScrollIndicator={false}>
               {runnerList.map((runner, i) => (
-                <RunnerRow key={runner.runnerId} runner={runner} color={getColor(i)} />
+                <TouchableOpacity
+                  key={runner.runnerId}
+                  activeOpacity={0.7}
+                  onPress={() => mapRef.current?.animateCamera(
+                    { center: { latitude: runner.lat, longitude: runner.lng }, zoom: 16 },
+                    { duration: 600 },
+                  )}
+                >
+                  <RunnerRow runner={runner} color={getColor(i)} />
+                </TouchableOpacity>
               ))}
             </ScrollView>
           )
