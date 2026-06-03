@@ -90,7 +90,7 @@ export default function RunnerActiveScreen() {
         {
           accuracy: Location.Accuracy.BestForNavigation,
           timeInterval: 1000,
-          distanceInterval: 5,
+          distanceInterval: 0,
         },
         (loc) => {
           const coord: Coord = {
