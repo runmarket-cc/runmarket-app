@@ -5,14 +5,21 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Text,
+  Platform,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/theme';
 
 export default function HomeScreen() {
   const webviewRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  const injectedCSS = Platform.OS === 'android' && insets.bottom > 0
+    ? `(function(){var s=document.createElement('style');s.textContent='body{padding-bottom:${insets.bottom}px!important}';document.head.appendChild(s);})();true;`
+    : undefined;
 
   return (
     <View style={styles.container}>
@@ -46,6 +53,7 @@ export default function HomeScreen() {
           javaScriptEnabled
           domStorageEnabled
           startInLoadingState={false}
+          injectedJavaScript={injectedCSS}
         />
       )}
     </View>
