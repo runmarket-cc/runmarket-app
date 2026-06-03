@@ -28,6 +28,14 @@ export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError }:
   const unmountedRef = useRef(false);
   const [runners, setRunners] = useState<Map<string, RunnerState>>(new Map());
 
+  // 콜백을 ref로 보관해서 connect 의존성에서 제외
+  const onOpenRef = useRef(onOpen);
+  const onCloseRef = useRef(onClose);
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onOpenRef.current = onOpen; }, [onOpen]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
 
@@ -37,12 +45,14 @@ export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError }:
 
     ws.onopen = () => {
       attemptsRef.current = 0;
-      onOpen?.();
+      onOpenRef.current?.();
     };
 
-    ws.onclose = () => {
-      onClose?.();
+    ws.onclose = (event) => {
+      onCloseRef.current?.();
       if (unmountedRef.current) return;
+      // 인증 실패(1008) 또는 정책 위반은 재연결해도 의미 없음
+      if (event.code === 1008 || event.code === 1011) return;
       if (attemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         attemptsRef.current += 1;
         console.log(`[SpectatorSocket] 재연결 시도 ${attemptsRef.current}/${MAX_RECONNECT_ATTEMPTS}`);
@@ -50,7 +60,7 @@ export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError }:
       }
     };
 
-    ws.onerror = () => onError?.();
+    ws.onerror = () => onErrorRef.current?.();
 
     ws.onmessage = (event) => {
       try {
@@ -66,7 +76,8 @@ export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError }:
         });
       } catch {}
     };
-  }, [groupId, token, onOpen, onClose, onError]);
+  // groupId, token이 바뀔 때만 재연결
+  }, [groupId, token]);
 
   useEffect(() => {
     unmountedRef.current = false;

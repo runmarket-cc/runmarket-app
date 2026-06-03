@@ -44,9 +44,11 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
       onOpenRef.current?.();
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       onCloseRef.current?.();
       if (unmountedRef.current) return;
+      // 인증 실패(1008) 또는 정책 위반은 재연결해도 의미 없음
+      if (event.code === 1008 || event.code === 1011) return;
       if (attemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         attemptsRef.current += 1;
         console.log(`[RunnerSocket] 재연결 시도 ${attemptsRef.current}/${MAX_RECONNECT_ATTEMPTS}`);
