@@ -1,5 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
+import { useAuthStore } from '../store/authStore';
 
 export const BASE_URL = 'https://api.runmarket.cc';
 
@@ -18,10 +20,14 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// 에러 메시지 정규화
+// 에러 메시지 정규화 + 401 자동 로그아웃
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    if (error.response?.status === 401) {
+      await useAuthStore.getState().clearAuth();
+      router.replace('/(auth)/login');
+    }
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||
