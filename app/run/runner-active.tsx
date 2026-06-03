@@ -48,6 +48,7 @@ export default function RunnerActiveScreen() {
   const startTimeRef = useRef<number>(Date.now());
   const lastCoordRef = useRef<Coord | null>(null);
   const lastSendTimeRef = useRef<number>(0);
+  const distanceRef = useRef<number>(0);
 
   const [connected, setConnected] = useState(false);
   const [path, setPath] = useState<Coord[]>([]);
@@ -105,6 +106,7 @@ export default function RunnerActiveScreen() {
             const delta = haversine(lastCoordRef.current, coord);
             setDistance((d) => {
               const newDist = d + delta;
+              distanceRef.current = newDist;
               const timeSec = (Date.now() - startTimeRef.current) / 1000;
               if (newDist > 0) setPaceSecPerKm(timeSec / newDist);
               return newDist;
@@ -115,20 +117,18 @@ export default function RunnerActiveScreen() {
           // 지도 카메라 따라가기
           mapRef.current?.animateCamera({ center: coord, zoom: 16 }, { duration: 500 });
 
-          // 3초마다 소켓 전송
+          // 3초마다 소켓 전송 — distanceRef로 최신 거리를 읽어 사이드 이펙트를 updater 밖으로 분리
           const now = Date.now();
           if (now - lastSendTimeRef.current >= LOCATION_INTERVAL_MS) {
             lastSendTimeRef.current = now;
             const timeSec = Math.floor((now - startTimeRef.current) / 1000);
-            setDistance((d) => {
-              sendLocation({
-                lat: coord.latitude,
-                lng: coord.longitude,
-                pace: formatPace(d > 0 ? timeSec / d : 0),
-                distance: Math.round(d * 100) / 100,
-                time: timeSec,
-              });
-              return d;
+            const currentDist = distanceRef.current;
+            sendLocation({
+              lat: coord.latitude,
+              lng: coord.longitude,
+              pace: formatPace(currentDist > 0 ? timeSec / currentDist : 0),
+              distance: Math.round(currentDist * 100) / 100,
+              time: timeSec,
             });
           }
         }

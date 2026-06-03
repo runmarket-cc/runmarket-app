@@ -24,6 +24,14 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
 
+  // 콜백을 ref로 보관해서 connect 의존성에서 제외
+  const onOpenRef = useRef(onOpen);
+  const onCloseRef = useRef(onClose);
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onOpenRef.current = onOpen; }, [onOpen]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
 
@@ -33,11 +41,11 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
 
     ws.onopen = () => {
       attemptsRef.current = 0;
-      onOpen?.();
+      onOpenRef.current?.();
     };
 
     ws.onclose = () => {
-      onClose?.();
+      onCloseRef.current?.();
       if (unmountedRef.current) return;
       if (attemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         attemptsRef.current += 1;
@@ -46,8 +54,9 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
       }
     };
 
-    ws.onerror = () => onError?.();
-  }, [runnerId, token, onOpen, onClose, onError]);
+    ws.onerror = () => onErrorRef.current?.();
+  // runnerId, token이 바뀔 때만 재연결
+  }, [runnerId, token]);
 
   useEffect(() => {
     unmountedRef.current = false;
