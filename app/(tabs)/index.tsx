@@ -18,26 +18,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const injectedCSS = Platform.OS === 'android'
-    ? `(function(){
-        var top=${insets.top},bot=${insets.bottom};
-        var s=document.createElement('style');
-        s.textContent='body{padding-top:'+top+'px!important;padding-bottom:'+bot+'px!important}';
-        document.head.appendChild(s);
-        var fixing=false;
-        function fixFixed(){
-          if(fixing)return;fixing=true;
-          document.querySelectorAll('*').forEach(function(el){
-            var cs=getComputedStyle(el);
-            if(cs.position==='fixed'){
-              var t=parseFloat(cs.top)||0;
-              if(t>=0&&t<top){el.style.top=top+'px';}
-            }
-          });
-          fixing=false;
-        }
-        fixFixed();
-        new MutationObserver(fixFixed).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class']});
-      })();true;`
+    ? `(function(){var s=document.createElement('style');s.textContent='body{padding-top:${insets.top}px!important;padding-bottom:${insets.bottom}px!important}';document.head.appendChild(s);})();true;`
     : undefined;
 
   return (
