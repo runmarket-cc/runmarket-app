@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Platform, Alert,
@@ -28,6 +28,8 @@ export default function SpectatorActiveScreen() {
     groupId: string; socketToken: string;
   }>();
   const insets = useSafeAreaInsets();
+  const mapRef = useRef<MapView>(null);
+  const centeredRef = useRef(false);
 
   const [connected, setConnected] = useState(false);
   const [showList, setShowList] = useState(true);
@@ -42,6 +44,16 @@ export default function SpectatorActiveScreen() {
 
   const runnerList = Array.from(runners.values());
 
+  useEffect(() => {
+    if (centeredRef.current || runnerList.length === 0) return;
+    const first = runnerList[0];
+    mapRef.current?.animateCamera(
+      { center: { latitude: first.lat, longitude: first.lng }, zoom: 15 },
+      { duration: 800 },
+    );
+    centeredRef.current = true;
+  }, [runnerList]);
+
   const handleStop = () => {
     Alert.alert('관전 종료', '관전을 종료하시겠습니까?', [
       { text: '계속 보기', style: 'cancel' },
@@ -53,6 +65,7 @@ export default function SpectatorActiveScreen() {
     <View style={styles.container}>
       {/* 지도 */}
       <MapView
+        ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         showsUserLocation
