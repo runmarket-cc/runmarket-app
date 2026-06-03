@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { useSpectatorSocket, RunnerState } from '../../src/hooks/useSpectatorSocket';
 
@@ -26,6 +27,7 @@ export default function SpectatorActiveScreen() {
   const { groupId, socketToken } = useLocalSearchParams<{
     groupId: string; socketToken: string;
   }>();
+  const insets = useSafeAreaInsets();
 
   const [connected, setConnected] = useState(false);
   const [showList, setShowList] = useState(true);
@@ -83,7 +85,7 @@ export default function SpectatorActiveScreen() {
       </View>
 
       {/* 하단 패널 */}
-      <View style={styles.panel}>
+      <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 32 : Spacing[4]) }]}>
         {/* 패널 토글 */}
         <TouchableOpacity style={styles.panelToggle} onPress={() => setShowList((v) => !v)}>
           <Text style={styles.panelToggleText}>
@@ -172,7 +174,6 @@ const styles = StyleSheet.create({
 
   panel: {
     backgroundColor: Colors.navy,
-    paddingBottom: Platform.OS === 'ios' ? 32 : Spacing[4],
     maxHeight: 280,
   },
   panelToggle: {

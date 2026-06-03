@@ -5,6 +5,7 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { useRunnerSocket } from '../../src/hooks/useRunnerSocket';
 
@@ -43,6 +44,7 @@ export default function RunnerActiveScreen() {
   const { groupId, runnerId, socketToken } = useLocalSearchParams<{
     groupId: string; runnerId: string; socketToken: string;
   }>();
+  const insets = useSafeAreaInsets();
 
   const mapRef = useRef<MapView>(null);
   const startTimeRef = useRef<number>(Date.now());
@@ -180,7 +182,7 @@ export default function RunnerActiveScreen() {
       </View>
 
       {/* 통계 패널 */}
-      <View style={styles.statsPanel}>
+      <View style={[styles.statsPanel, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 32 : Spacing[4]) }]}>
         <View style={styles.statsRow}>
           <StatBox label="시간" value={formatTime(elapsed)} />
           <StatBox label="거리" value={`${distance.toFixed(2)} km`} />
@@ -236,7 +238,6 @@ const styles = StyleSheet.create({
   statsPanel: {
     backgroundColor: Colors.navy,
     paddingTop: Spacing[4],
-    paddingBottom: Platform.OS === 'ios' ? 32 : Spacing[4],
     paddingHorizontal: Spacing[4],
     gap: Spacing[3],
   },
