@@ -17,8 +17,8 @@ export default function HomeScreen() {
   const [error, setError] = useState(false);
   const insets = useSafeAreaInsets();
 
-  const injectedCSS = Platform.OS === 'android' && insets.bottom > 0
-    ? `(function(){var s=document.createElement('style');s.textContent='body{padding-bottom:${insets.bottom}px!important}';document.head.appendChild(s);})();true;`
+  const injectedCSS = Platform.OS === 'android'
+    ? `(function(){var s=document.createElement('style');s.textContent='body{padding-top:${insets.top}px!important;padding-bottom:${insets.bottom}px!important}';document.head.appendChild(s);})();true;`
     : undefined;
 
   return (
