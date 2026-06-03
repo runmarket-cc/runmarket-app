@@ -3,20 +3,18 @@ import { Stack, router } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 
 export default function RootLayout() {
-  const { loadAuth, isLoggedIn } = useAuthStore();
+  const { loadAuth, isLoggedIn, initialized } = useAuthStore();
 
   useEffect(() => {
-    const init = async () => {
-      await loadAuth();
-    };
-    init();
+    loadAuth();
   }, []);
 
   useEffect(() => {
+    if (!initialized) return;
     if (!isLoggedIn) {
       router.replace('/(auth)/login');
     }
-  }, [isLoggedIn]);
+  }, [initialized, isLoggedIn]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

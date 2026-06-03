@@ -5,6 +5,7 @@ interface AuthState {
   accessToken: string | null;
   email: string | null;
   isLoggedIn: boolean;
+  initialized: boolean;
 
   setAuth: (token: string, email: string) => Promise<void>;
   clearAuth: () => Promise<void>;
@@ -15,6 +16,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
   email: null,
   isLoggedIn: false,
+  initialized: false,
 
   setAuth: async (token, email) => {
     await SecureStore.setItemAsync('accessToken', token);
@@ -32,7 +34,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     const token = await SecureStore.getItemAsync('accessToken');
     const email = await SecureStore.getItemAsync('userEmail');
     if (token && email) {
-      set({ accessToken: token, email, isLoggedIn: true });
+      set({ accessToken: token, email, isLoggedIn: true, initialized: true });
+    } else {
+      set({ initialized: true });
     }
   },
 }));
