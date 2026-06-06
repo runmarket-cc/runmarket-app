@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing } from '../constants/theme';
 
 interface HeaderProps {
@@ -8,10 +9,11 @@ interface HeaderProps {
 }
 
 export function Header({ title = '런마켓', right }: HeaderProps) {
+  const insets = useSafeAreaInsets();
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor={Colors.navy} />
-      <View style={styles.container}>
+      <View style={[styles.container, Platform.OS === 'ios' && { paddingTop: insets.top }]}>
         <Text style={styles.logo}>{title}</Text>
         {right && <View style={styles.right}>{right}</View>}
       </View>
@@ -22,7 +24,7 @@ export function Header({ title = '런마켓', right }: HeaderProps) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.navy,
-    height: 56,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing[4],

@@ -61,7 +61,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: Colors.navy },
   webview: { flex: 1 },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
