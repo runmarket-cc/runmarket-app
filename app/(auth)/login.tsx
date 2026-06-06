@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/store/authStore';
 import { Colors } from '../../src/constants/theme';
 
@@ -35,6 +36,7 @@ const INJECT_JS = `
 export default function LoginScreen() {
   const { setAuth, isLoggedIn } = useAuthStore();
   const webviewRef = useRef<WebView>(null);
+  const insets = useSafeAreaInsets();
 
   const handleMessage = async (event: WebViewMessageEvent) => {
     try {
@@ -47,7 +49,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, Platform.OS === 'ios' && { paddingTop: insets.top }]}>
       <WebView
         ref={webviewRef}
         source={{ uri: 'https://www.runmarket.cc/login' }}

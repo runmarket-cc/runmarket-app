@@ -22,7 +22,7 @@ export default function HomeScreen() {
     : undefined;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, Platform.OS === 'ios' && { paddingTop: insets.top }]}>
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color={Colors.amber} size="large" />
