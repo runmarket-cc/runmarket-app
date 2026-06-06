@@ -69,7 +69,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: Colors.navy },
   loading: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
