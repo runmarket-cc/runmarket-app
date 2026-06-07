@@ -5,6 +5,7 @@ import {
   TouchableOpacity, Modal,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ColorPicker from 'react-native-wheel-color-picker';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { Input } from '../../src/components/Input';
@@ -20,6 +21,7 @@ export default function RunnerSetupScreen() {
   const [tempColor, setTempColor] = useState('#ff9900');
   const [loading, setLoading] = useState(false);
 
+  const insets = useSafeAreaInsets();
   const previewColor = selectedColor ?? getRunnerColor(runnerId.trim() || 'default');
 
   const handleStart = async () => {
@@ -129,7 +131,7 @@ export default function RunnerSetupScreen() {
               />
             </View>
 
-            <View style={styles.modalBtns}>
+            <View style={[styles.modalBtns, { paddingBottom: insets.bottom }]}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnCancel]}
                 onPress={() => setPickerVisible(false)}
