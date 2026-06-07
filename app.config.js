@@ -27,6 +27,8 @@ module.exports = {
       permissions: [
         'android.permission.ACCESS_FINE_LOCATION',
         'android.permission.ACCESS_COARSE_LOCATION',
+        'android.permission.POST_NOTIFICATIONS',
+        'android.permission.FOREGROUND_SERVICE',
       ],
     },
     web: {
@@ -34,6 +36,7 @@ module.exports = {
     },
     plugins: [
       './plugins/withGoogleMapsApiKey.ts',
+      './plugins/withLiveActivities.ts',
       'expo-router',
       'expo-secure-store',
       'react-native-maps',
@@ -41,6 +44,14 @@ module.exports = {
         'expo-location',
         {
           locationAlwaysAndWhenInUsePermission: '러닝 중 위치를 공유하기 위해 위치 권한이 필요합니다.',
+        },
+      ],
+      [
+        'expo-notifications',
+        {
+          icon: './assets/icon.png',
+          color: '#232f3e',
+          sounds: [],
         },
       ],
     ],

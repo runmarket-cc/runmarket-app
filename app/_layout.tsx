@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { Stack, router } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { useAuthStore } from '../src/store/authStore';
 
 export default function RootLayout() {
@@ -7,6 +9,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     loadAuth();
+    if (Platform.OS === 'android') {
+      Notifications.requestPermissionsAsync();
+    }
   }, []);
 
   useEffect(() => {
