@@ -177,7 +177,7 @@ export default function RunnerActiveScreen() {
             key={runner.runnerId}
             coordinate={{ latitude: runner.lat, longitude: runner.lng }}
             title={runner.runnerId}
-            description={`${runner.distance.toFixed(2)}km · ${runner.pace}/km`}
+            description={`${(runner.distance ?? 0).toFixed(2)}km · ${runner.pace ?? '--:--'}/km`}
           >
             <View style={styles.otherMarker}>
               <Text style={styles.myMarkerText}>🏃</Text>
