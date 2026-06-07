@@ -103,6 +103,9 @@ export default function RunnerSetupScreen() {
               {selectedColor ? selectedColor.toUpperCase() : '자동 배정 (탭하여 변경)'}
             </Text>
           </TouchableOpacity>
+          <Text style={styles.hint}>
+            지도와 러너 목록에서 나를 표시할 색상입니다. 선택하지 않으면 러너 ID 기반으로 자동 배정됩니다.
+          </Text>
         </View>
 
         <Button
