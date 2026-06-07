@@ -53,7 +53,7 @@ export default function RunnerSetupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + Spacing[4] }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* 안내 카드 */}

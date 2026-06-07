@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
@@ -12,6 +13,7 @@ import { issueSocketToken } from '../../src/api/auth';
 export default function SpectatorSetupScreen() {
   const [groupId, setGroupId] = useState('');
   const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const handleWatch = async () => {
     const gid = groupId.trim().toUpperCase();
@@ -39,7 +41,7 @@ export default function SpectatorSetupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + Spacing[4] }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* 안내 카드 */}
