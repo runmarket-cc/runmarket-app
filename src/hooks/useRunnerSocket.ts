@@ -1,9 +1,11 @@
-import { useEffect, useRef, useCallback } from 'react';
-import type { RunnerPayload } from '../types';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import type { RunnerPayload, SpectatorMessage } from '../types';
 
 const WS_BASE = 'wss://pulse.runmarket.cc';
 const RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_ATTEMPTS = 5;
+
+export type OtherRunnerState = RunnerPayload & { runnerId: string; updatedAt: number };
 
 interface Options {
   runnerId: string;
@@ -23,6 +25,7 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
   const attemptsRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
+  const [otherRunners, setOtherRunners] = useState<Map<string, OtherRunnerState>>(new Map());
 
   // 콜백을 ref로 보관해서 connect 의존성에서 제외
   const onOpenRef = useRef(onOpen);
@@ -57,6 +60,18 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
     };
 
     ws.onerror = () => onErrorRef.current?.();
+
+    ws.onmessage = (event) => {
+      try {
+        const msg: SpectatorMessage = JSON.parse(event.data);
+        if (msg.runnerId === runnerId) return; // 내 위치는 무시
+        setOtherRunners((prev) => {
+          const next = new Map(prev);
+          next.set(msg.runnerId, { ...msg.data, runnerId: msg.runnerId, updatedAt: Date.now() });
+          return next;
+        });
+      } catch {}
+    };
   // runnerId, token이 바뀔 때만 재연결
   }, [runnerId, token]);
 
@@ -79,5 +94,5 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
     }
   }, []);
 
-  return { sendLocation };
+  return { sendLocation, otherRunners };
 }

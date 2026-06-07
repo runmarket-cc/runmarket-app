@@ -8,6 +8,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { useRunnerSocket } from '../../src/hooks/useRunnerSocket';
+import { useRunnerLockScreen } from '../../src/hooks/useLockScreenActivity';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -59,14 +60,19 @@ export default function RunnerActiveScreen() {
   const [elapsed, setElapsed] = useState(0);   // 초
   const [paceSecPerKm, setPaceSecPerKm] = useState(0);
 
+  // ── 잠금 화면 위젯 ──
+  useRunnerLockScreen(groupId && runnerId ? { runnerId, groupId } : null);
+
   // ── 소켓 ──
-  const { sendLocation } = useRunnerSocket({
+  const { sendLocation, otherRunners } = useRunnerSocket({
     runnerId,
     token: socketToken,
     onOpen: () => setConnected(true),
     onClose: () => setConnected(false),
     onError: () => setConnected(false),
   });
+
+  const otherRunnerList = Array.from(otherRunners.values());
 
   // ── 경과 시간 타이머 ──
   useEffect(() => {
@@ -119,16 +125,17 @@ export default function RunnerActiveScreen() {
           // 지도 카메라 따라가기
           mapRef.current?.animateCamera({ center: coord, zoom: 16 }, { duration: 500 });
 
-          // 3초마다 소켓 전송 — distanceRef로 최신 거리를 읽어 사이드 이펙트를 updater 밖으로 분리
+          // 3초마다 소켓 전송 & 잠금 화면 업데이트
           const now = Date.now();
           if (now - lastSendTimeRef.current >= LOCATION_INTERVAL_MS) {
             lastSendTimeRef.current = now;
             const timeSec = Math.floor((now - startTimeRef.current) / 1000);
             const currentDist = distanceRef.current;
+            const currentPace = formatPace(currentDist > 0 ? timeSec / currentDist : 0);
             sendLocation({
               lat: coord.latitude,
               lng: coord.longitude,
-              pace: formatPace(currentDist > 0 ? timeSec / currentDist : 0),
+              pace: currentPace,
               distance: Math.round(currentDist * 100) / 100,
               time: timeSec,
             });
@@ -165,6 +172,18 @@ export default function RunnerActiveScreen() {
         {path.length > 1 && (
           <Polyline coordinates={path} strokeColor={Colors.amber} strokeWidth={4} />
         )}
+        {otherRunnerList.map((runner) => (
+          <Marker
+            key={runner.runnerId}
+            coordinate={{ latitude: runner.lat, longitude: runner.lng }}
+            title={runner.runnerId}
+            description={`${runner.distance.toFixed(2)}km · ${runner.pace}/km`}
+          >
+            <View style={styles.otherMarker}>
+              <Text style={styles.myMarkerText}>🏃</Text>
+            </View>
+          </Marker>
+        ))}
         {currentCoord && (
           <Marker coordinate={currentCoord} title="나">
             <View style={styles.myMarker}>
@@ -228,6 +247,13 @@ const styles = StyleSheet.create({
 
   myMarker: {
     backgroundColor: Colors.amber,
+    borderRadius: 20,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: Colors.white,
+  },
+  otherMarker: {
+    backgroundColor: '#3b82f6',
     borderRadius: 20,
     padding: 4,
     borderWidth: 2,
