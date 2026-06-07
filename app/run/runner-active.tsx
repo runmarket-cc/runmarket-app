@@ -208,6 +208,8 @@ export default function RunnerActiveScreen() {
       {otherRunnerList.length > 0 && (
         <View style={styles.runnerPanel}>
           <RunnerListPanel
+            title="함께 달리는 러너"
+            description="러너를 탭하면 해당 위치로 지도가 이동합니다."
             runners={otherRunnerList}
             onPressRunner={(runner) => mapRef.current?.animateCamera(
               { center: { latitude: runner.lat, longitude: runner.lng }, zoom: 16 },

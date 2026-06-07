@@ -96,6 +96,8 @@ export default function SpectatorActiveScreen() {
       {/* 하단 패널 */}
       <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 32 : Spacing[4]) }]}>
         <RunnerListPanel
+          title="러너 목록"
+          description="러너를 탭하면 해당 위치로 지도가 이동합니다."
           runners={runnerList}
           onPressRunner={(runner) => mapRef.current?.animateCamera(
             { center: { latitude: runner.lat, longitude: runner.lng }, zoom: 16 },

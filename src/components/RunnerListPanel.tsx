@@ -31,18 +31,26 @@ export interface RunnerInfo {
 interface Props {
   runners: RunnerInfo[];
   onPressRunner: (runner: RunnerInfo) => void;
+  title?: string;
+  description?: string;
 }
 
 /** 러너 목록 패널 — 토글 가능, 클릭 시 onPressRunner 호출 */
-export function RunnerListPanel({ runners, onPressRunner }: Props) {
+export function RunnerListPanel({ runners, onPressRunner, title, description }: Props) {
   const [show, setShow] = useState(true);
 
   return (
     <>
       <TouchableOpacity style={styles.toggle} onPress={() => setShow((v) => !v)}>
-        <Text style={styles.toggleText}>
-          {show ? '▼ 러너 목록 접기' : `▲ 러너 목록 보기 (${runners.length}명)`}
-        </Text>
+        <View style={styles.toggleInner}>
+          {title && <Text style={styles.toggleTitle}>{title}</Text>}
+          <Text style={styles.toggleText}>
+            {show ? '▼ 접기' : `▲ 펼치기 (${runners.length}명)`}
+          </Text>
+        </View>
+        {description && show && (
+          <Text style={styles.toggleDesc}>{description}</Text>
+        )}
       </TouchableOpacity>
 
       {show && (
@@ -101,14 +109,30 @@ function formatTime(sec: number): string {
 const styles = StyleSheet.create({
   toggle: {
     paddingVertical: Spacing[2],
-    alignItems: 'center',
+    paddingHorizontal: Spacing[4],
     borderBottomWidth: 1,
     borderBottomColor: '#374151',
+    gap: 2,
+  },
+  toggleInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleTitle: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.white,
   },
   toggleText: {
     fontSize: FontSize.xs,
     color: '#9ca3af',
     fontWeight: '600',
+  },
+  toggleDesc: {
+    fontSize: FontSize.xs,
+    color: '#6b7280',
+    marginTop: 2,
   },
   list: { maxHeight: 180 },
   emptyBox: {
