@@ -198,7 +198,7 @@ export default function RunnerActiveScreen() {
       </MapView>
 
       {/* 연결 상태 배지 */}
-      <View style={[styles.statusBadge, connected ? styles.statusConnected : styles.statusDisconnected]}>
+      <View style={[styles.statusBadge, connected ? styles.statusConnected : styles.statusDisconnected, { top: insets.top + Spacing[3] }]}>
         <Text style={styles.statusText}>
           {connected ? '● 라이브 중' : '● 연결 중...'}
         </Text>
