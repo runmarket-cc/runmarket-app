@@ -126,7 +126,7 @@ export default function RunnerActiveScreen() {
           lastCoordRef.current = coord;
 
           // 지도 카메라 따라가기
-          mapRef.current?.animateCamera({ center: coord, zoom: 16 }, { duration: 500 });
+          mapRef.current?.animateCamera({ center: coord, zoom: 14 }, { duration: 500 });
 
           // 3초마다 소켓 전송 & 잠금 화면 업데이트
           const now = Date.now();
@@ -168,7 +168,7 @@ export default function RunnerActiveScreen() {
         followsUserLocation={false}
         initialRegion={
           currentCoord
-            ? { ...currentCoord, latitudeDelta: 0.005, longitudeDelta: 0.005 }
+            ? { ...currentCoord, latitudeDelta: 0.05, longitudeDelta: 0.05 }
             : { latitude: 37.5665, longitude: 126.978, latitudeDelta: 0.05, longitudeDelta: 0.05 }
         }
       >
