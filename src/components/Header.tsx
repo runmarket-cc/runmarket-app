@@ -13,7 +13,7 @@ export function Header({ title = '런마켓', right }: HeaderProps) {
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor={Colors.navy} />
-      <View style={[styles.container, Platform.OS === 'ios' && { paddingTop: insets.top }]}>
+      <View style={[styles.container, Platform.OS === 'ios' && { paddingTop: insets.top, height: 56 + insets.top }]}>
         <Text style={styles.logo}>{title}</Text>
         {right && <View style={styles.right}>{right}</View>}
       </View>
@@ -24,7 +24,7 @@ export function Header({ title = '런마켓', right }: HeaderProps) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.navy,
-    minHeight: 56,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing[4],
