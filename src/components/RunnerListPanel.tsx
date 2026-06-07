@@ -4,14 +4,18 @@ import {
 } from 'react-native';
 import { Colors, FontSize, Spacing, Radius } from '../constants/theme';
 
-// 러너마다 다른 색상 (최대 8명)
 const RUNNER_COLORS = [
   '#ff9900', '#3b82f6', '#10b981', '#f43f5e',
   '#8b5cf6', '#f59e0b', '#06b6d4', '#84cc16',
 ];
 
-export function getRunnerColor(index: number) {
-  return RUNNER_COLORS[index % RUNNER_COLORS.length];
+/** runnerId 문자열을 해시해서 항상 동일한 색상 반환 */
+export function getRunnerColor(runnerId: string): string {
+  let hash = 0;
+  for (let i = 0; i < runnerId.length; i++) {
+    hash = (hash * 31 + runnerId.charCodeAt(i)) >>> 0;
+  }
+  return RUNNER_COLORS[hash % RUNNER_COLORS.length];
 }
 
 export interface RunnerInfo {
@@ -48,13 +52,13 @@ export function RunnerListPanel({ runners, onPressRunner }: Props) {
           </View>
         ) : (
           <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
-            {runners.map((runner, i) => (
+            {runners.map((runner) => (
               <TouchableOpacity
                 key={runner.runnerId}
                 activeOpacity={0.7}
                 onPress={() => onPressRunner(runner)}
               >
-                <RunnerRow runner={runner} color={getRunnerColor(i)} />
+                <RunnerRow runner={runner} color={getRunnerColor(runner.runnerId)} />
               </TouchableOpacity>
             ))}
           </ScrollView>

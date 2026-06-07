@@ -175,14 +175,14 @@ export default function RunnerActiveScreen() {
         {path.length > 1 && (
           <Polyline coordinates={path} strokeColor={Colors.amber} strokeWidth={4} />
         )}
-        {otherRunnerList.map((runner, i) => (
+        {otherRunnerList.map((runner) => (
           <Marker
             key={runner.runnerId}
             coordinate={{ latitude: runner.lat, longitude: runner.lng }}
             title={runner.runnerId}
             description={`${(runner.distance ?? 0).toFixed(2)}km · ${runner.pace ?? '--:--'}/km`}
           >
-            <View style={[styles.otherMarker, { backgroundColor: getRunnerColor(i) }]}>
+            <View style={[styles.otherMarker, { backgroundColor: getRunnerColor(runner.runnerId) }]}>
               <Text style={styles.myMarkerText}>🏃</Text>
             </View>
           </Marker>
