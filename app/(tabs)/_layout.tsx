@@ -44,13 +44,6 @@ export default function TabsLayout() {
           tabBarIcon: () => <TabIcon emoji="🏃" />,
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: '프로필',
-          tabBarIcon: () => <TabIcon emoji="👤" />,
-        }}
-      />
     </Tabs>
   );
 }
