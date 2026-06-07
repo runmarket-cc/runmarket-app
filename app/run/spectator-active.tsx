@@ -72,14 +72,14 @@ export default function SpectatorActiveScreen() {
           longitudeDelta: 0.05,
         }}
       >
-        {runnerList.map((runner, i) => (
+        {runnerList.map((runner) => (
           <Marker
             key={runner.runnerId}
             coordinate={{ latitude: runner.lat, longitude: runner.lng }}
             title={runner.runnerId}
             description={`${runner.distance.toFixed(2)}km · ${runner.pace === '--:--' ? '-' : `${runner.pace}/km`}`}
           >
-            <View style={[styles.runnerMarker, { backgroundColor: getRunnerColor(i) }]}>
+            <View style={[styles.runnerMarker, { backgroundColor: getRunnerColor(runner.runnerId) }]}>
               <Text style={styles.runnerMarkerText}>🏃</Text>
             </View>
           </Marker>
