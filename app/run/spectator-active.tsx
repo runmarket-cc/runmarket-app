@@ -79,7 +79,7 @@ export default function SpectatorActiveScreen() {
             title={runner.runnerId}
             description={`${runner.distance.toFixed(2)}km · ${runner.pace === '--:--' ? '-' : `${runner.pace}/km`}`}
           >
-            <View style={[styles.runnerMarker, { backgroundColor: getRunnerColor(runner.runnerId) }]}>
+            <View style={[styles.runnerMarker, { backgroundColor: runner.color ?? getRunnerColor(runner.runnerId) }]}>
               <Text style={styles.runnerMarkerText}>🏃</Text>
             </View>
           </Marker>

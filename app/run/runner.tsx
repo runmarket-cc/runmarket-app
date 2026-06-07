@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform, Alert, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
 import { issueSocketToken } from '../../src/api/auth';
+import { getRunnerColor } from '../../src/components/RunnerListPanel';
+
+const PRESET_COLORS = [
+  '#ff9900', '#3b82f6', '#10b981', '#f43f5e',
+  '#8b5cf6', '#f59e0b', '#06b6d4', '#84cc16',
+];
 
 export default function RunnerSetupScreen() {
   const [groupId, setGroupId] = useState('');
   const [runnerId, setRunnerId] = useState('');
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleStart = async () => {
@@ -25,10 +32,10 @@ export default function RunnerSetupScreen() {
     setLoading(true);
     try {
       const res = await issueSocketToken({ role: 'RUNNER', groupId: gid, runnerId: rid });
-      // 소켓 토큰을 파라미터로 넘겨 active 화면으로 이동
+      const color = selectedColor ?? getRunnerColor(rid);
       router.push({
         pathname: '/run/runner-active',
-        params: { groupId: gid, runnerId: rid, socketToken: res.accessToken },
+        params: { groupId: gid, runnerId: rid, socketToken: res.accessToken, color },
       });
     } catch (e: any) {
       Alert.alert('오류', e.message ?? '소켓 토큰 발급에 실패했습니다.');
@@ -80,6 +87,23 @@ export default function RunnerSetupScreen() {
           <Text style={styles.hint}>
             같은 그룹 안에서 나를 구별하는 이름입니다.
           </Text>
+
+          {/* 색상 선택 */}
+          <Text style={styles.colorLabel}>내 색상</Text>
+          <View style={styles.colorRow}>
+            {PRESET_COLORS.map((color) => {
+              const active = (selectedColor ?? getRunnerColor(runnerId.trim() || 'default')) === color;
+              return (
+                <TouchableOpacity
+                  key={color}
+                  style={[styles.colorSwatch, { backgroundColor: color }, active && styles.colorSwatchActive]}
+                  onPress={() => setSelectedColor(color)}
+                  activeOpacity={0.8}
+                />
+              );
+            })}
+          </View>
+          <Text style={styles.hint}>선택하지 않으면 러너 ID 기반으로 자동 배정됩니다.</Text>
         </View>
 
         <Button
@@ -129,4 +153,27 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   startBtn: { marginTop: Spacing[2] },
+  colorLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.white,
+    marginTop: Spacing[3],
+    marginBottom: Spacing[2],
+  },
+  colorRow: {
+    flexDirection: 'row',
+    gap: Spacing[2],
+    flexWrap: 'wrap',
+  },
+  colorSwatch: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorSwatchActive: {
+    borderColor: Colors.white,
+    transform: [{ scale: 1.15 }],
+  },
 });

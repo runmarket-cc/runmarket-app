@@ -43,8 +43,8 @@ function formatPace(secPerKm: number): string {
 }
 
 export default function RunnerActiveScreen() {
-  const { groupId, runnerId, socketToken } = useLocalSearchParams<{
-    groupId: string; runnerId: string; socketToken: string;
+  const { groupId, runnerId, socketToken, color } = useLocalSearchParams<{
+    groupId: string; runnerId: string; socketToken: string; color: string;
   }>();
   const insets = useSafeAreaInsets();
 
@@ -141,6 +141,7 @@ export default function RunnerActiveScreen() {
               pace: currentPace,
               distance: Math.round(currentDist * 100) / 100,
               time: timeSec,
+              color,
             });
           }
         }
@@ -182,7 +183,7 @@ export default function RunnerActiveScreen() {
             title={runner.runnerId}
             description={`${(runner.distance ?? 0).toFixed(2)}km · ${runner.pace ?? '--:--'}/km`}
           >
-            <View style={[styles.otherMarker, { backgroundColor: getRunnerColor(runner.runnerId) }]}>
+            <View style={[styles.otherMarker, { backgroundColor: runner.color ?? getRunnerColor(runner.runnerId) }]}>
               <Text style={styles.myMarkerText}>🏃</Text>
             </View>
           </Marker>
