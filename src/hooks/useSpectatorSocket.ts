@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { SpectatorMessage, RunnerPayload } from '../types';
 
 const WS_BASE = 'wss://pulse.runmarket.cc';
-const RECONNECT_DELAY_MS = 1000;
-const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 16000;
+const MAX_RECONNECT_ATTEMPTS = 6;
 
 export type RunnerState = RunnerPayload & { runnerId: string; updatedAt: number };
 
@@ -55,8 +56,12 @@ export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError }:
       if (event.code === 1008 || event.code === 1011) return;
       if (attemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         attemptsRef.current += 1;
-        console.log(`[SpectatorSocket] 재연결 시도 ${attemptsRef.current}/${MAX_RECONNECT_ATTEMPTS}`);
-        timerRef.current = setTimeout(connect, RECONNECT_DELAY_MS);
+        const delay = Math.min(
+          RECONNECT_BASE_DELAY_MS * 2 ** (attemptsRef.current - 1),
+          RECONNECT_MAX_DELAY_MS,
+        );
+        console.log(`[SpectatorSocket] 재연결 시도 ${attemptsRef.current}/${MAX_RECONNECT_ATTEMPTS} (${delay}ms)`);
+        timerRef.current = setTimeout(connect, delay);
       }
     };
 
