@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   spectatorCard: {
-    backgroundColor: '#1a2332',
+    backgroundColor: Colors.navyDark,
   },
   roleEmoji: { fontSize: 36 },
   roleInfo: { flex: 1 },
@@ -77,11 +77,11 @@ const styles = StyleSheet.create({
     fontSize: FontSize.lg,
     fontWeight: '700',
     color: Colors.amber,
-    marginBottom: 4,
+    marginBottom: Spacing[1],
   },
   roleDesc: {
     fontSize: FontSize.sm,
-    color: '#9ca3af',
+    color: Colors.gray400,
     lineHeight: 18,
   },
   arrow: {

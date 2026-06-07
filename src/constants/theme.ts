@@ -2,6 +2,7 @@
 
 export const Colors = {
   navy: '#232f3e',
+  navyDark: '#1a2332',
   amber: '#ff9900',
   priceRed: '#B12704',
   statusGreen: '#067d62',
@@ -13,10 +14,18 @@ export const Colors = {
   muted: '#f3f4f6',
   mutedForeground: '#6b7280',
   border: '#e5e7eb',
+  borderDark: '#374151',
+  rowDivider: '#1f2937',
   card: '#ffffff',
 
   white: '#ffffff',
   black: '#000000',
+
+  gray400: '#9ca3af',
+  destructive: '#dc2626',
+  statusOnline: '#065f46',
+  statusOffline: '#7f1d1d',
+  modalBackdrop: 'rgba(0,0,0,0.6)',
 } as const;
 
 export const FontSize = {
@@ -43,5 +52,6 @@ export const Radius = {
   sm: 6,
   md: 8,
   lg: 12,
+  xl: 20,
   full: 9999,
 } as const;

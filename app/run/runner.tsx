@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
   infoDesc: {
     fontSize: FontSize.sm,
-    color: '#9ca3af',
+    color: Colors.gray400,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   // 모달
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: Colors.modalBackdrop,
     justifyContent: 'flex-end',
   },
   modalSheet: {
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   modalDesc: {
     fontSize: FontSize.sm,
-    color: '#9ca3af',
+    color: Colors.gray400,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -289,6 +289,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     alignItems: 'center',
   },
-  modalBtnCancel: { backgroundColor: '#374151' },
+  modalBtnCancel: { backgroundColor: Colors.borderDark },
   modalBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
 });

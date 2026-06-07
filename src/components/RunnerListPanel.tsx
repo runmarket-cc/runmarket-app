@@ -81,7 +81,7 @@ function RunnerRow({ runner, color }: { runner: RunnerInfo; color: string }) {
   return (
     <View style={styles.row}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={styles.name}>{runner.runnerId}</Text>
+      <Text style={styles.name} numberOfLines={1}>{runner.runnerId}</Text>
       <View style={styles.stats}>
         <StatChip label="거리" value={`${(runner.distance ?? 0).toFixed(2)}km`} />
         <StatChip label="페이스" value={runner.pace === '--:--' ? '-' : `${runner.pace}/km`} />
@@ -111,8 +111,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing[2],
     paddingHorizontal: Spacing[4],
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
-    gap: 2,
+    borderBottomColor: Colors.borderDark,
+    gap: Spacing[1],
   },
   toggleInner: {
     flexDirection: 'row',
@@ -126,29 +126,29 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: FontSize.xs,
-    color: '#9ca3af',
+    color: Colors.gray400,
     fontWeight: '600',
   },
   toggleDesc: {
     fontSize: FontSize.xs,
-    color: '#6b7280',
-    marginTop: 2,
+    color: Colors.mutedForeground,
+    marginTop: Spacing[1],
   },
   list: { maxHeight: 180 },
   emptyBox: {
     alignItems: 'center',
     paddingVertical: Spacing[4],
-    gap: 4,
+    gap: Spacing[1],
   },
   emptyText: { color: Colors.white, fontSize: FontSize.sm },
-  emptySubText: { color: '#6b7280', fontSize: FontSize.xs },
+  emptySubText: { color: Colors.mutedForeground, fontSize: FontSize.xs },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing[4],
     paddingVertical: Spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2937',
+    borderBottomColor: Colors.rowDivider,
     gap: Spacing[3],
   },
   dot: { width: 10, height: 10, borderRadius: 5 },
@@ -160,6 +160,6 @@ const styles = StyleSheet.create({
   },
   stats: { flexDirection: 'row', gap: Spacing[2] },
   chip: { alignItems: 'center', minWidth: 52 },
-  chipLabel: { fontSize: 10, color: '#6b7280', fontWeight: '500' },
+  chipLabel: { fontSize: FontSize.xs, color: Colors.mutedForeground, fontWeight: '500' },
   chipValue: { fontSize: FontSize.xs, color: Colors.amber, fontWeight: '700' },
 });
