@@ -1,28 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Platform, Alert,
+  View, Text, StyleSheet, TouchableOpacity, Platform, Alert,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
-import { useSpectatorSocket, RunnerState } from '../../src/hooks/useSpectatorSocket';
+import { useSpectatorSocket } from '../../src/hooks/useSpectatorSocket';
 import { useSpectatorLockScreen } from '../../src/hooks/useLockScreenActivity';
-
-// 러너마다 다른 색상 (최대 8명)
-const RUNNER_COLORS = [
-  '#ff9900', '#3b82f6', '#10b981', '#f43f5e',
-  '#8b5cf6', '#f59e0b', '#06b6d4', '#84cc16',
-];
-
-function getColor(index: number) {
-  return RUNNER_COLORS[index % RUNNER_COLORS.length];
-}
-
-function formatPace(pace: string) {
-  return pace === '--:--' ? '-' : `${pace}/km`;
-}
+import { RunnerListPanel, getRunnerColor } from '../../src/components/RunnerListPanel';
 
 export default function SpectatorActiveScreen() {
   const { groupId, socketToken } = useLocalSearchParams<{
@@ -33,7 +19,6 @@ export default function SpectatorActiveScreen() {
   const centeredRef = useRef(false);
 
   const [connected, setConnected] = useState(false);
-  const [showList, setShowList] = useState(true);
 
   const { runners } = useSpectatorSocket({
     groupId,
@@ -92,9 +77,9 @@ export default function SpectatorActiveScreen() {
             key={runner.runnerId}
             coordinate={{ latitude: runner.lat, longitude: runner.lng }}
             title={runner.runnerId}
-            description={`${runner.distance.toFixed(2)}km · ${formatPace(runner.pace)}`}
+            description={`${runner.distance.toFixed(2)}km · ${runner.pace === '--:--' ? '-' : `${runner.pace}/km`}`}
           >
-            <View style={[styles.runnerMarker, { backgroundColor: getColor(i) }]}>
+            <View style={[styles.runnerMarker, { backgroundColor: getRunnerColor(i) }]}>
               <Text style={styles.runnerMarkerText}>🏃</Text>
             </View>
           </Marker>
@@ -110,36 +95,13 @@ export default function SpectatorActiveScreen() {
 
       {/* 하단 패널 */}
       <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 32 : Spacing[4]) }]}>
-        {/* 패널 토글 */}
-        <TouchableOpacity style={styles.panelToggle} onPress={() => setShowList((v) => !v)}>
-          <Text style={styles.panelToggleText}>
-            {showList ? '▼ 러너 목록 접기' : '▲ 러너 목록 보기'}
-          </Text>
-        </TouchableOpacity>
-
-        {showList && (
-          runnerList.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>아직 달리고 있는 러너가 없습니다.</Text>
-              <Text style={styles.emptySubText}>러너가 시작하면 자동으로 표시됩니다.</Text>
-            </View>
-          ) : (
-            <ScrollView style={styles.runnerList} showsVerticalScrollIndicator={false}>
-              {runnerList.map((runner, i) => (
-                <TouchableOpacity
-                  key={runner.runnerId}
-                  activeOpacity={0.7}
-                  onPress={() => mapRef.current?.animateCamera(
-                    { center: { latitude: runner.lat, longitude: runner.lng }, zoom: 16 },
-                    { duration: 600 },
-                  )}
-                >
-                  <RunnerRow runner={runner} color={getColor(i)} />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )
-        )}
+        <RunnerListPanel
+          runners={runnerList}
+          onPressRunner={(runner) => mapRef.current?.animateCamera(
+            { center: { latitude: runner.lat, longitude: runner.lng }, zoom: 16 },
+            { duration: 600 },
+          )}
+        />
 
         <View style={styles.footer}>
           <Text style={styles.footerMeta}>그룹 코드: {groupId}</Text>
@@ -152,34 +114,6 @@ export default function SpectatorActiveScreen() {
   );
 }
 
-function RunnerRow({ runner, color }: { runner: RunnerState; color: string }) {
-  return (
-    <View style={styles.runnerRow}>
-      <View style={[styles.runnerDot, { backgroundColor: color }]} />
-      <Text style={styles.runnerName}>{runner.runnerId}</Text>
-      <View style={styles.runnerStats}>
-        <StatChip label="거리" value={`${runner.distance.toFixed(2)}km`} />
-        <StatChip label="페이스" value={formatPace(runner.pace)} />
-        <StatChip label="시간" value={formatTime(runner.time)} />
-      </View>
-    </View>
-  );
-}
-
-function StatChip({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.chip}>
-      <Text style={styles.chipLabel}>{label}</Text>
-      <Text style={styles.chipValue}>{value}</Text>
-    </View>
-  );
-}
-
-function formatTime(sec: number): string {
-  const m = Math.floor(sec / 60).toString().padStart(2, '0');
-  const s = (sec % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-}
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
@@ -209,49 +143,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.navy,
     maxHeight: 280,
   },
-  panelToggle: {
-    paddingVertical: Spacing[2],
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#374151',
-  },
-  panelToggleText: {
-    fontSize: FontSize.xs,
-    color: '#9ca3af',
-    fontWeight: '600',
-  },
-  runnerList: { maxHeight: 180 },
-  emptyBox: {
-    alignItems: 'center',
-    paddingVertical: Spacing[4],
-    gap: 4,
-  },
-  emptyText: { color: Colors.white, fontSize: FontSize.sm },
-  emptySubText: { color: '#6b7280', fontSize: FontSize.xs },
-
-  runnerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[3],
-    borderBottomWidth: 1,
-    borderBottomColor: '#1f2937',
-    gap: Spacing[3],
-  },
-  runnerDot: { width: 10, height: 10, borderRadius: 5 },
-  runnerName: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.white,
-    flex: 1,
-  },
-  runnerStats: {
-    flexDirection: 'row',
-    gap: Spacing[2],
-  },
-  chip: { alignItems: 'center', minWidth: 52 },
-  chipLabel: { fontSize: 10, color: '#6b7280', fontWeight: '500' },
-  chipValue: { fontSize: FontSize.xs, color: Colors.amber, fontWeight: '700' },
 
   footer: {
     flexDirection: 'row',
