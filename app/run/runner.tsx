@@ -118,7 +118,18 @@ export default function RunnerSetupScreen() {
       <Modal visible={pickerVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>색상 선택</Text>
+            <Text style={styles.modalTitle}>내 마커 색상 선택</Text>
+            <Text style={styles.modalDesc}>
+              지도와 러너 목록에서 나를 나타낼 색상을 골라주세요.
+            </Text>
+
+            {/* 선택 색상 미리보기 */}
+            <View style={styles.previewRow}>
+              <View style={[styles.previewMarker, { backgroundColor: tempColor }]}>
+                <Text style={styles.previewEmoji}>🏃</Text>
+              </View>
+              <Text style={styles.previewHex}>{tempColor.toUpperCase()}</Text>
+            </View>
 
             <View style={styles.pickerWrap}>
               <ColorPicker
@@ -236,7 +247,35 @@ const styles = StyleSheet.create({
     color: Colors.white,
     textAlign: 'center',
   },
-  pickerWrap: { height: 300 },
+  modalDesc: {
+    fontSize: FontSize.sm,
+    color: '#9ca3af',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing[3],
+  },
+  previewMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewEmoji: { fontSize: 20 },
+  previewHex: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  pickerWrap: { height: 280 },
   modalBtns: {
     flexDirection: 'row',
     gap: Spacing[3],
