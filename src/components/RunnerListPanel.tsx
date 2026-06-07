@@ -1,0 +1,136 @@
+import React, { useState } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+} from 'react-native';
+import { Colors, FontSize, Spacing, Radius } from '../constants/theme';
+
+// 러너마다 다른 색상 (최대 8명)
+const RUNNER_COLORS = [
+  '#ff9900', '#3b82f6', '#10b981', '#f43f5e',
+  '#8b5cf6', '#f59e0b', '#06b6d4', '#84cc16',
+];
+
+export function getRunnerColor(index: number) {
+  return RUNNER_COLORS[index % RUNNER_COLORS.length];
+}
+
+export interface RunnerInfo {
+  runnerId: string;
+  lat: number;
+  lng: number;
+  pace: string;
+  distance: number;
+  time: number;
+}
+
+interface Props {
+  runners: RunnerInfo[];
+  onPressRunner: (runner: RunnerInfo) => void;
+}
+
+/** 러너 목록 패널 — 토글 가능, 클릭 시 onPressRunner 호출 */
+export function RunnerListPanel({ runners, onPressRunner }: Props) {
+  const [show, setShow] = useState(true);
+
+  return (
+    <>
+      <TouchableOpacity style={styles.toggle} onPress={() => setShow((v) => !v)}>
+        <Text style={styles.toggleText}>
+          {show ? '▼ 러너 목록 접기' : `▲ 러너 목록 보기 (${runners.length}명)`}
+        </Text>
+      </TouchableOpacity>
+
+      {show && (
+        runners.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>함께 달리는 러너가 없습니다.</Text>
+            <Text style={styles.emptySubText}>러너가 참여하면 자동으로 표시됩니다.</Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+            {runners.map((runner, i) => (
+              <TouchableOpacity
+                key={runner.runnerId}
+                activeOpacity={0.7}
+                onPress={() => onPressRunner(runner)}
+              >
+                <RunnerRow runner={runner} color={getRunnerColor(i)} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )
+      )}
+    </>
+  );
+}
+
+function RunnerRow({ runner, color }: { runner: RunnerInfo; color: string }) {
+  return (
+    <View style={styles.row}>
+      <View style={[styles.dot, { backgroundColor: color }]} />
+      <Text style={styles.name}>{runner.runnerId}</Text>
+      <View style={styles.stats}>
+        <StatChip label="거리" value={`${(runner.distance ?? 0).toFixed(2)}km`} />
+        <StatChip label="페이스" value={runner.pace === '--:--' ? '-' : `${runner.pace}/km`} />
+        <StatChip label="시간" value={formatTime(runner.time ?? 0)} />
+      </View>
+    </View>
+  );
+}
+
+function StatChip({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.chip}>
+      <Text style={styles.chipLabel}>{label}</Text>
+      <Text style={styles.chipValue}>{value}</Text>
+    </View>
+  );
+}
+
+function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+const styles = StyleSheet.create({
+  toggle: {
+    paddingVertical: Spacing[2],
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
+  },
+  toggleText: {
+    fontSize: FontSize.xs,
+    color: '#9ca3af',
+    fontWeight: '600',
+  },
+  list: { maxHeight: 180 },
+  emptyBox: {
+    alignItems: 'center',
+    paddingVertical: Spacing[4],
+    gap: 4,
+  },
+  emptyText: { color: Colors.white, fontSize: FontSize.sm },
+  emptySubText: { color: '#6b7280', fontSize: FontSize.xs },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing[4],
+    paddingVertical: Spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: '#1f2937',
+    gap: Spacing[3],
+  },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  name: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.white,
+    flex: 1,
+  },
+  stats: { flexDirection: 'row', gap: Spacing[2] },
+  chip: { alignItems: 'center', minWidth: 52 },
+  chipLabel: { fontSize: 10, color: '#6b7280', fontWeight: '500' },
+  chipValue: { fontSize: FontSize.xs, color: Colors.amber, fontWeight: '700' },
+});

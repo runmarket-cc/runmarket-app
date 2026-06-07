@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { useRunnerSocket } from '../../src/hooks/useRunnerSocket';
 import { useRunnerLockScreen } from '../../src/hooks/useLockScreenActivity';
+import { RunnerListPanel, getRunnerColor } from '../../src/components/RunnerListPanel';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -174,14 +175,14 @@ export default function RunnerActiveScreen() {
         {path.length > 1 && (
           <Polyline coordinates={path} strokeColor={Colors.amber} strokeWidth={4} />
         )}
-        {otherRunnerList.map((runner) => (
+        {otherRunnerList.map((runner, i) => (
           <Marker
             key={runner.runnerId}
             coordinate={{ latitude: runner.lat, longitude: runner.lng }}
             title={runner.runnerId}
             description={`${(runner.distance ?? 0).toFixed(2)}km · ${runner.pace ?? '--:--'}/km`}
           >
-            <View style={styles.otherMarker}>
+            <View style={[styles.otherMarker, { backgroundColor: getRunnerColor(i) }]}>
               <Text style={styles.myMarkerText}>🏃</Text>
             </View>
           </Marker>
@@ -201,6 +202,19 @@ export default function RunnerActiveScreen() {
           {connected ? '● 라이브 중' : '● 연결 중...'}
         </Text>
       </View>
+
+      {/* 다른 러너 목록 패널 */}
+      {otherRunnerList.length > 0 && (
+        <View style={styles.runnerPanel}>
+          <RunnerListPanel
+            runners={otherRunnerList}
+            onPressRunner={(runner) => mapRef.current?.animateCamera(
+              { center: { latitude: runner.lat, longitude: runner.lng }, zoom: 16 },
+              { duration: 600 },
+            )}
+          />
+        </View>
+      )}
 
       {/* 통계 패널 */}
       <View style={[styles.statsPanel, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 32 : Spacing[4]) }]}>
@@ -255,11 +269,14 @@ const styles = StyleSheet.create({
     borderColor: Colors.white,
   },
   otherMarker: {
-    backgroundColor: '#3b82f6',
     borderRadius: 20,
     padding: 4,
     borderWidth: 2,
     borderColor: Colors.white,
+  },
+  runnerPanel: {
+    backgroundColor: Colors.navy,
+    maxHeight: 240,
   },
   myMarkerText: { fontSize: 18 },
 
