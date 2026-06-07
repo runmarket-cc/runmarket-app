@@ -1,0 +1,10 @@
+{
+  "name": "runmarket-live-activity",
+  "version": "0.0.1",
+  "description": "Live Activities module for runmarket",
+  "main": "index.js",
+  "files": [
+    "ios",
+    "expo-module.config.json"
+  ]
+}

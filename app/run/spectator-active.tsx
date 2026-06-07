@@ -8,6 +8,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { useSpectatorSocket, RunnerState } from '../../src/hooks/useSpectatorSocket';
+import { useSpectatorLockScreen } from '../../src/hooks/useLockScreenActivity';
 
 // 러너마다 다른 색상 (최대 8명)
 const RUNNER_COLORS = [
@@ -44,6 +45,11 @@ export default function SpectatorActiveScreen() {
 
   const runnerList = Array.from(runners.values());
 
+  // ── 잠금 화면 위젯 ──
+  const { update: updateLockScreen } = useSpectatorLockScreen(
+    groupId ? { groupId, runnerCount: runnerList.length } : null
+  );
+
   useEffect(() => {
     if (centeredRef.current || runnerList.length === 0) return;
     const first = runnerList[0];
@@ -53,6 +59,11 @@ export default function SpectatorActiveScreen() {
     );
     centeredRef.current = true;
   }, [runnerList]);
+
+  // 러너 수 / 연결 상태 변경 시 잠금 화면 업데이트
+  useEffect(() => {
+    updateLockScreen({ runnerCount: runnerList.length, isConnected: connected });
+  }, [runnerList.length, connected]);
 
   const handleStop = () => {
     Alert.alert('관전 종료', '관전을 종료하시겠습니까?', [
