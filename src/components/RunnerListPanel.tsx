@@ -25,6 +25,7 @@ export interface RunnerInfo {
   pace: string;
   distance: number;
   time: number;
+  color?: string;
 }
 
 interface Props {
@@ -58,7 +59,7 @@ export function RunnerListPanel({ runners, onPressRunner }: Props) {
                 activeOpacity={0.7}
                 onPress={() => onPressRunner(runner)}
               >
-                <RunnerRow runner={runner} color={getRunnerColor(runner.runnerId)} />
+                <RunnerRow runner={runner} color={runner.color ?? getRunnerColor(runner.runnerId)} />
               </TouchableOpacity>
             ))}
           </ScrollView>

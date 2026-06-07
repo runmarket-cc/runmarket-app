@@ -24,6 +24,7 @@ export interface RunnerPayload {
   pace: string;     // "5:30" 형식 (mm:ss / km)
   distance: number; // km
   time: number;     // 초
+  color?: string;   // 러너가 선택한 색상 (hex)
 }
 
 /** 관전자가 서버로부터 수신하는 메시지 */
