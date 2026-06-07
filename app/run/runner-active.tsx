@@ -72,7 +72,9 @@ export default function RunnerActiveScreen() {
     onError: () => setConnected(false),
   });
 
-  const otherRunnerList = Array.from(otherRunners.values());
+  const otherRunnerList = Array.from(otherRunners.values()).filter(
+    (r) => r.runnerId && typeof r.lat === 'number' && typeof r.lng === 'number',
+  );
 
   // ── 경과 시간 타이머 ──
   useEffect(() => {
