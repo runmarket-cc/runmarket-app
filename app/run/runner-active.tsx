@@ -190,7 +190,7 @@ export default function RunnerActiveScreen() {
         ))}
         {currentCoord && (
           <Marker coordinate={currentCoord} title="나">
-            <View style={styles.myMarker}>
+            <View style={[styles.myMarker, { backgroundColor: color ?? Colors.amber }]}>
               <Text style={styles.myMarkerText}>🏃</Text>
             </View>
           </Marker>
