@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   infoCard: {
-    backgroundColor: '#1a2332',
+    backgroundColor: Colors.navyDark,
     borderRadius: Radius.lg,
     padding: Spacing[5],
     alignItems: 'center',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   },
   infoDesc: {
     fontSize: FontSize.sm,
-    color: '#9ca3af',
+    color: Colors.gray400,
     textAlign: 'center',
     lineHeight: 20,
   },

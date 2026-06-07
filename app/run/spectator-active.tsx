@@ -129,8 +129,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: Radius.full,
   },
-  statusConnected: { backgroundColor: '#065f46' },
-  statusDisconnected: { backgroundColor: '#7f1d1d' },
+  statusConnected: { backgroundColor: Colors.statusOnline },
+  statusDisconnected: { backgroundColor: Colors.statusOffline },
   statusText: { color: Colors.white, fontSize: FontSize.xs, fontWeight: '700' },
 
   runnerMarker: {
@@ -153,11 +153,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[4],
     paddingTop: Spacing[3],
   },
-  footerMeta: { fontSize: FontSize.xs, color: '#6b7280' },
+  footerMeta: { fontSize: FontSize.xs, color: Colors.mutedForeground },
   stopBtn: {
-    backgroundColor: '#dc2626',
+    backgroundColor: Colors.destructive,
     paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[2],
+    paddingVertical: Spacing[3],
     borderRadius: Radius.md,
   },
   stopBtnText: { color: Colors.white, fontSize: FontSize.sm, fontWeight: '700' },

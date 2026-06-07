@@ -260,8 +260,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: Radius.full,
   },
-  statusConnected: { backgroundColor: '#065f46' },
-  statusDisconnected: { backgroundColor: '#7f1d1d' },
+  statusConnected: { backgroundColor: Colors.statusOnline },
+  statusDisconnected: { backgroundColor: Colors.statusOffline },
   statusText: { color: Colors.white, fontSize: FontSize.xs, fontWeight: '700' },
 
   myMarker: {
@@ -293,10 +293,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  statBox: { flex: 1, alignItems: 'center', gap: 4 },
+  statBox: { flex: 1, alignItems: 'center', gap: Spacing[1] },
   statLabel: {
     fontSize: FontSize.xs,
-    color: '#9ca3af',
+    color: Colors.gray400,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -307,10 +307,10 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   metaRow: { alignItems: 'center' },
-  metaText: { fontSize: FontSize.xs, color: '#6b7280' },
+  metaText: { fontSize: FontSize.xs, color: Colors.mutedForeground },
 
   stopBtn: {
-    backgroundColor: '#dc2626',
+    backgroundColor: Colors.destructive,
     borderRadius: Radius.md,
     paddingVertical: Spacing[3],
     alignItems: 'center',
