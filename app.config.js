@@ -21,7 +21,7 @@ module.exports = {
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundImage: './assets/android-icon-background.png',
         monochromeImage: './assets/android-icon-monochrome.png',
-        backgroundColor: '#232f3e',
+        backgroundColor: '#131A22',
       },
       package: 'cc.runmarket.app',
       permissions: [
@@ -41,6 +41,15 @@ module.exports = {
       'expo-secure-store',
       'react-native-maps',
       [
+        'expo-splash-screen',
+        {
+          image: './assets/splash-icon.png',
+          imageWidth: 180,
+          resizeMode: 'contain',
+          backgroundColor: '#131A22',
+        },
+      ],
+      [
         'expo-location',
         {
           locationAlwaysAndWhenInUsePermission: '러닝 중 위치를 공유하기 위해 위치 권한이 필요합니다.',
@@ -49,8 +58,8 @@ module.exports = {
       [
         'expo-notifications',
         {
-          icon: './assets/icon.png',
-          color: '#232f3e',
+          icon: './assets/android-icon-monochrome.png',
+          color: '#FF8A00',
           sounds: [],
         },
       ],
