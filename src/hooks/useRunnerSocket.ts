@@ -90,10 +90,18 @@ setOtherRunners((prev) => {
   }, [connect]);
 
   const sendLocation = useCallback((payload: RunnerPayload) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(payload));
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+      return;
     }
-  }, []);
+    // 백그라운드 등에서 소켓이 닫힌 채 재연결 횟수를 소진했으면, 전송 시도를 계기로 다시 연결
+    if (!unmountedRef.current && (!ws || ws.readyState === WebSocket.CLOSED)) {
+      if (timerRef.current) clearTimeout(timerRef.current); // 예약된 재연결과 중복 방지
+      attemptsRef.current = 0;
+      connect();
+    }
+  }, [connect]);
 
   return { sendLocation, otherRunners };
 }

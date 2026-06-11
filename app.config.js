@@ -27,8 +27,10 @@ module.exports = {
       permissions: [
         'android.permission.ACCESS_FINE_LOCATION',
         'android.permission.ACCESS_COARSE_LOCATION',
+        'android.permission.ACCESS_BACKGROUND_LOCATION',
         'android.permission.POST_NOTIFICATIONS',
         'android.permission.FOREGROUND_SERVICE',
+        'android.permission.FOREGROUND_SERVICE_LOCATION',
       ],
     },
     web: {
@@ -52,7 +54,10 @@ module.exports = {
       [
         'expo-location',
         {
-          locationAlwaysAndWhenInUsePermission: '러닝 중 위치를 공유하기 위해 위치 권한이 필요합니다.',
+          locationAlwaysAndWhenInUsePermission: '러닝 중 화면이 꺼져 있어도 위치를 공유하기 위해 위치 권한이 필요합니다.',
+          isIosBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
         },
       ],
       [
