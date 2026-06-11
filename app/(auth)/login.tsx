@@ -57,6 +57,11 @@ export default function LoginScreen() {
         injectedJavaScript={INJECT_JS}
         javaScriptEnabled
         domStorageEnabled
+        // Cloudflare Turnstile: cf_clearance 쿠키가 유지돼야 챌린지가 반복되지 않음
+        sharedCookiesEnabled
+        thirdPartyCookiesEnabled
+        // Turnstile 챌린지 iframe(about:srcdoc)을 외부로 위임하지 않고 WebView 내부에서 처리
+        originWhitelist={['https://*', 'about:*']}
         startInLoadingState
         renderLoading={() => (
           <View style={styles.loading}>
