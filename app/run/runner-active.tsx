@@ -49,6 +49,7 @@ export default function RunnerActiveScreen() {
   const insets = useSafeAreaInsets();
 
   const mapRef = useRef<MapView>(null);
+  const centeredRef = useRef(false);
   const startTimeRef = useRef<number>(Date.now());
   const lastCoordRef = useRef<Coord | null>(null);
   const lastSendTimeRef = useRef<number>(0);
@@ -125,8 +126,11 @@ export default function RunnerActiveScreen() {
           }
           lastCoordRef.current = coord;
 
-          // 지도 카메라 따라가기
-          mapRef.current?.animateCamera({ center: coord, zoom: 14 }, { duration: 500 });
+          // 첫 GPS 수신 시에만 내 위치로 이동 (이후 자동 추적 없음)
+          if (!centeredRef.current) {
+            centeredRef.current = true;
+            mapRef.current?.animateCamera({ center: coord, zoom: 14 }, { duration: 500 });
+          }
 
           // 3초마다 소켓 전송 & 잠금 화면 업데이트
           const now = Date.now();
