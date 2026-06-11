@@ -40,7 +40,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="run"
         options={{
-          title: '런',
+          title: '달리기',
           tabBarIcon: () => <TabIcon emoji="🏃" />,
         }}
       />
