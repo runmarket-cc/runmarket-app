@@ -1,19 +1,28 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Header } from '../../src/components/Header';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 
 export default function RunScreen() {
+  const navigating = useRef(false);
+
+  const navigate = (path: string) => {
+    if (navigating.current) return;
+    navigating.current = true;
+    router.push(path as any);
+    setTimeout(() => { navigating.current = false; }, 1000);
+  };
+
   return (
     <View style={styles.container}>
-      <Header title="런" />
+      <Header title="달리기" />
       <View style={styles.content}>
         <Text style={styles.subtitle}>오늘 어떻게 달릴까요?</Text>
 
         <TouchableOpacity
           style={styles.roleCard}
-          onPress={() => router.push('/run/runner' as any)}
+          onPress={() => navigate('/run/runner')}
           activeOpacity={0.85}
         >
           <Text style={styles.roleEmoji}>🏃</Text>
@@ -26,7 +35,7 @@ export default function RunScreen() {
 
         <TouchableOpacity
           style={[styles.roleCard, styles.spectatorCard]}
-          onPress={() => router.push('/run/spectator' as any)}
+          onPress={() => navigate('/run/spectator')}
           activeOpacity={0.85}
         >
           <Text style={styles.roleEmoji}>👀</Text>
