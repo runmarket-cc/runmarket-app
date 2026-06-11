@@ -46,7 +46,8 @@ export default function HomeScreen() {
         <WebView
           ref={webviewRef}
           source={{ uri: 'https://www.runmarket.cc' }}
-          onLoadStart={() => setLoading(true)}
+          // 주의: Android는 SPA의 pushState/replaceState에도 onLoadStart를 발생시키지만
+          // onLoadEnd는 오지 않음 → onLoadStart로 오버레이를 켜면 무한로딩에 빠짐
           onLoadEnd={() => setLoading(false)}
           onError={() => { setLoading(false); setError(true); }}
           style={styles.webview}
