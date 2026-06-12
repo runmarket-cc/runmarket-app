@@ -9,9 +9,26 @@ import { Colors } from '../../src/constants/theme';
 // 로그인 성공 후 localStorage에서 토큰/이메일을 추출해 앱으로 전송
 const INJECT_JS = `
   (function() {
+    // JWT exp를 검사해 만료 여부를 판단 (파싱 실패 시엔 만료로 보지 않음)
+    function isExpired(token) {
+      try {
+        var payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.exp && payload.exp * 1000 < Date.now();
+      } catch (e) {
+        return false;
+      }
+    }
+
     function tryExtract() {
-      const token = localStorage.getItem('runmarket_user_token');
-      const email = localStorage.getItem('runmarket_user_email');
+      var token = localStorage.getItem('runmarket_user_token');
+      var email = localStorage.getItem('runmarket_user_email');
+      // 만료된 토큰은 앱으로 보내지 않고 정리 → 만료 토큰으로 자동 재로그인되는
+      // 루프(401 → 로그인 → 즉시 홈 → 401)를 끊는다.
+      if (token && isExpired(token)) {
+        localStorage.removeItem('runmarket_user_token');
+        localStorage.removeItem('runmarket_user_email');
+        return;
+      }
       if (token && email) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ token, email }));
       }

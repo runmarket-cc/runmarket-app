@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,6 +20,22 @@ export default function HomeScreen() {
   const injectedCSS = Platform.OS === 'android'
     ? `(function(){var s=document.createElement('style');s.textContent='body{padding-top:${insets.top}px!important;padding-bottom:${insets.bottom}px!important}';document.head.appendChild(s);})();true;`
     : undefined;
+
+  // 안전장치: Android에서 SPA 리다이렉트(예: 만료 세션 → 로그인) 시 onLoadEnd가
+  // 오지 않아 오버레이가 무한히 남는 경우를 대비해 일정 시간 후 강제로 해제한다.
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => setLoading(false), 8000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  // 장시간 러닝(지도+GPS 포그라운드 서비스) 동안 백그라운드에 있던 WebView 렌더러가
+  // 시스템 메모리 회수로 죽으면 복구 수단 없이 흰 화면이 된다 → 자동으로 다시 로드.
+  const handleProcessGone = () => {
+    setError(false);
+    setLoading(true);
+    webviewRef.current?.reload();
+  };
 
   return (
     <View style={[styles.container, Platform.OS === 'ios' && { paddingTop: insets.top }]}>
@@ -50,6 +66,9 @@ export default function HomeScreen() {
           // onLoadEnd는 오지 않음 → onLoadStart로 오버레이를 켜면 무한로딩에 빠짐
           onLoadEnd={() => setLoading(false)}
           onError={() => { setLoading(false); setError(true); }}
+          // 렌더러 프로세스가 죽었을 때 흰 화면으로 멈추지 않도록 자동 복구
+          onRenderProcessGone={handleProcessGone}
+          onContentProcessDidTerminate={handleProcessGone}
           style={styles.webview}
           javaScriptEnabled
           domStorageEnabled
@@ -73,7 +92,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.background,
+    // 흰색이면 오버레이가 남았을 때 그대로 백화로 보이므로 navy 사용
+    backgroundColor: Colors.navy,
     zIndex: 10,
   },
   errorContainer: {
