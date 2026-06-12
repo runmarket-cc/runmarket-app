@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, Alert, TouchableOpacity, Platform,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,6 +63,20 @@ export default function RunnerActiveScreen() {
   const [distance, setDistance] = useState(0); // km
   const [elapsed, setElapsed] = useState(0);   // 초
   const [paceSecPerKm, setPaceSecPerKm] = useState(0);
+  const [groupCopied, setGroupCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopyGroupId = useCallback(async () => {
+    if (!groupId) return;
+    await Clipboard.setStringAsync(groupId);
+    setGroupCopied(true);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setGroupCopied(false), 1500);
+  }, [groupId]);
+
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+  }, []);
 
   // ── 잠금 화면 위젯 ──
   useRunnerLockScreen(groupId && runnerId ? { runnerId, groupId } : null);
@@ -289,9 +304,11 @@ export default function RunnerActiveScreen() {
           <StatBox label="페이스" value={`${formatPace(paceSecPerKm)} /km`} />
         </View>
 
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>그룹 {groupId} · {runnerId}</Text>
-        </View>
+        <TouchableOpacity style={styles.metaRow} onPress={handleCopyGroupId} activeOpacity={0.6}>
+          <Text style={styles.metaText}>
+            {groupCopied ? '그룹 코드가 복사되었습니다 ✓' : `그룹 ${groupId} · ${runnerId}`}
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.stopBtn} onPress={handleStop} activeOpacity={0.8}>
           <Text style={styles.stopBtnText}>■  종료</Text>

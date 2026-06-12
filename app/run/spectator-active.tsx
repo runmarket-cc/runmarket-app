@@ -1,8 +1,9 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Platform, Alert,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
@@ -19,6 +20,20 @@ export default function SpectatorActiveScreen() {
   const centeredRef = useRef(false);
 
   const [connected, setConnected] = useState(false);
+  const [groupCopied, setGroupCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopyGroupId = useCallback(async () => {
+    if (!groupId) return;
+    await Clipboard.setStringAsync(groupId);
+    setGroupCopied(true);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setGroupCopied(false), 1500);
+  }, [groupId]);
+
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+  }, []);
 
   const { runners } = useSpectatorSocket({
     groupId,
@@ -106,7 +121,11 @@ export default function SpectatorActiveScreen() {
         />
 
         <View style={styles.footer}>
-          <Text style={styles.footerMeta}>그룹 코드: {groupId}</Text>
+          <TouchableOpacity onPress={handleCopyGroupId} activeOpacity={0.6}>
+            <Text style={styles.footerMeta}>
+              {groupCopied ? '그룹 코드가 복사되었습니다 ✓' : `그룹 코드: ${groupId}`}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.stopBtn} onPress={handleStop} activeOpacity={0.8}>
             <Text style={styles.stopBtnText}>종료</Text>
           </TouchableOpacity>
