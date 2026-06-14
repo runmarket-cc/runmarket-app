@@ -9,16 +9,20 @@ import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
 import { issueSocketToken } from '../../src/api/auth';
+import { getSpectatorSetupContent, SPECTATOR_SETUP_FALLBACK } from '../../src/api/content';
+import { useScreenContent } from '../../src/hooks/useScreenContent';
 
 export default function SpectatorSetupScreen() {
   const [groupId, setGroupId] = useState('');
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
+  const content = useScreenContent(getSpectatorSetupContent, SPECTATOR_SETUP_FALLBACK);
+
   const handleWatch = async () => {
     const gid = groupId.trim().toUpperCase();
     if (!gid) {
-      Alert.alert('입력 오류', '그룹 코드를 입력해주세요.');
+      Alert.alert(content.emptyFieldsAlert.title, content.emptyFieldsAlert.message);
       return;
     }
     setLoading(true);
@@ -29,7 +33,7 @@ export default function SpectatorSetupScreen() {
         params: { groupId: gid, socketToken: res.accessToken },
       });
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '소켓 토큰 발급에 실패했습니다.');
+      Alert.alert(content.tokenFailAlert.title, e.message ?? content.tokenFailAlert.message);
     } finally {
       setLoading(false);
     }
@@ -46,30 +50,26 @@ export default function SpectatorSetupScreen() {
       >
         {/* 안내 카드 */}
         <View style={styles.infoCard}>
-          <Text style={styles.infoEmoji}>👀</Text>
-          <Text style={styles.infoTitle}>관전 모드</Text>
-          <Text style={styles.infoDesc}>
-            그룹 코드를 입력하면 달리고 있는 러너들의 위치를 실시간 지도에서 확인할 수 있습니다.
-          </Text>
+          <Text style={styles.infoEmoji}>{content.info.emoji}</Text>
+          <Text style={styles.infoTitle}>{content.info.title}</Text>
+          <Text style={styles.infoDesc}>{content.info.desc}</Text>
         </View>
 
         <View style={styles.form}>
           <Input
-            label="그룹 코드"
-            placeholder="예: AAAA"
+            label={content.groupCode.label}
+            placeholder={content.groupCode.placeholder}
             value={groupId}
             onChangeText={(t) => setGroupId(t.toUpperCase())}
             autoCapitalize="characters"
             maxLength={20}
             autoFocus
           />
-          <Text style={styles.hint}>
-            러너에게 그룹 코드를 받아 입력하세요.
-          </Text>
+          <Text style={styles.hint}>{content.groupCode.hint}</Text>
         </View>
 
         <Button
-          title="관전 시작"
+          title={content.watchButton}
           onPress={handleWatch}
           loading={loading}
           fullWidth
