@@ -1,0 +1,18 @@
+diff --git a/node_modules/expo-task-manager/android/src/main/java/expo/modules/taskManager/TaskManagerUtils.java b/node_modules/expo-task-manager/android/src/main/java/expo/modules/taskManager/TaskManagerUtils.java
+index 4dd0e94..be6f826 100644
+--- a/node_modules/expo-task-manager/android/src/main/java/expo/modules/taskManager/TaskManagerUtils.java
++++ b/node_modules/expo-task-manager/android/src/main/java/expo/modules/taskManager/TaskManagerUtils.java
+@@ -211,7 +211,12 @@ public class TaskManagerUtils implements TaskManagerUtilsInterface {
+           .setOverrideDeadline(DEFAULT_OVERRIDE_DEADLINE);
+     } else if (Build.VERSION.SDK_INT < 31) {
+       // For Android 9 (API 28) to Android 11 (API 30)
+-      jobBuilder.setImportantWhileForeground(true);
++      // setImportantWhileForeground() is only a modifier, not a constraint —
++      // JobInfo.Builder.build() throws "no constraints" without a timing constraint.
++      // Only a deadline (late constraint) is allowed here: a minimum latency
++      // (early constraint) combined with important-while-foreground also throws.
++      jobBuilder.setImportantWhileForeground(true)
++          .setOverrideDeadline(DEFAULT_OVERRIDE_DEADLINE);
+     } else {
+       // For Android 12 (API 31) and above
+       jobBuilder.setExpedited(true);
