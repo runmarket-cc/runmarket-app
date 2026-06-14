@@ -12,6 +12,8 @@ import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
 import { issueSocketToken } from '../../src/api/auth';
 import { getRunnerColor } from '../../src/components/RunnerListPanel';
+import { getRunnerSetupContent, RUNNER_SETUP_FALLBACK } from '../../src/api/content';
+import { useScreenContent } from '../../src/hooks/useScreenContent';
 
 export default function RunnerSetupScreen() {
   const [groupId, setGroupId] = useState('');
@@ -21,6 +23,8 @@ export default function RunnerSetupScreen() {
   const [tempColor, setTempColor] = useState('#ff9900');
   const [loading, setLoading] = useState(false);
 
+  const content = useScreenContent(getRunnerSetupContent, RUNNER_SETUP_FALLBACK);
+
   const insets = useSafeAreaInsets();
   const previewColor = selectedColor ?? getRunnerColor(runnerId.trim() || 'default');
 
@@ -28,7 +32,7 @@ export default function RunnerSetupScreen() {
     const gid = groupId.trim().toUpperCase();
     const rid = runnerId.trim();
     if (!gid || !rid) {
-      Alert.alert('입력 오류', '그룹 코드와 러너 ID를 모두 입력해주세요.');
+      Alert.alert(content.emptyFieldsAlert.title, content.emptyFieldsAlert.message);
       return;
     }
 
@@ -41,7 +45,7 @@ export default function RunnerSetupScreen() {
         params: { groupId: gid, runnerId: rid, socketToken: res.accessToken, color },
       });
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '소켓 토큰 발급에 실패했습니다.');
+      Alert.alert(content.tokenFailAlert.title, e.message ?? content.tokenFailAlert.message);
     } finally {
       setLoading(false);
     }
@@ -58,41 +62,35 @@ export default function RunnerSetupScreen() {
       >
         {/* 안내 카드 */}
         <View style={styles.infoCard}>
-          <Text style={styles.infoEmoji}>🏃</Text>
-          <Text style={styles.infoTitle}>러너 모드</Text>
-          <Text style={styles.infoDesc}>
-            달리는 동안 내 위치가 실시간으로 관전자에게 공유됩니다.
-          </Text>
+          <Text style={styles.infoEmoji}>{content.info.emoji}</Text>
+          <Text style={styles.infoTitle}>{content.info.title}</Text>
+          <Text style={styles.infoDesc}>{content.info.desc}</Text>
         </View>
 
         {/* 입력 폼 */}
         <View style={styles.form}>
           <Input
-            label="그룹 코드"
-            placeholder="예: AAAA"
+            label={content.groupCode.label}
+            placeholder={content.groupCode.placeholder}
             value={groupId}
             onChangeText={(t) => setGroupId(t.toUpperCase())}
             autoCapitalize="characters"
             maxLength={20}
           />
-          <Text style={styles.hint}>
-            관전자가 이 코드로 입장합니다. 함께 달릴 그룹의 고유 코드를 정하세요.
-          </Text>
+          <Text style={styles.hint}>{content.groupCode.hint}</Text>
 
           <Input
-            label="러너 ID"
-            placeholder="예: runner-1"
+            label={content.runnerId.label}
+            placeholder={content.runnerId.placeholder}
             value={runnerId}
             onChangeText={setRunnerId}
             autoCapitalize="none"
             maxLength={30}
           />
-          <Text style={styles.hint}>
-            같은 그룹 안에서 나를 구별하는 이름입니다.
-          </Text>
+          <Text style={styles.hint}>{content.runnerId.hint}</Text>
 
           {/* 색상 선택 */}
-          <Text style={styles.colorLabel}>내 색상</Text>
+          <Text style={styles.colorLabel}>{content.colorLabel}</Text>
           <TouchableOpacity
             style={styles.colorPickerBtn}
             onPress={() => { setTempColor(previewColor); setPickerVisible(true); }}
@@ -100,16 +98,14 @@ export default function RunnerSetupScreen() {
           >
             <View style={[styles.colorDot, { backgroundColor: previewColor }]} />
             <Text style={styles.colorPickerBtnText}>
-              {selectedColor ? selectedColor.toUpperCase() : '자동 배정 (탭하여 변경)'}
+              {selectedColor ? selectedColor.toUpperCase() : content.colorAutoText}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.hint}>
-            지도와 러너 목록에서 나를 표시할 색상입니다. 선택하지 않으면 러너 ID 기반으로 자동 배정됩니다.
-          </Text>
+          <Text style={styles.hint}>{content.colorHint}</Text>
         </View>
 
         <Button
-          title="달리기 시작"
+          title={content.startButton}
           onPress={handleStart}
           loading={loading}
           fullWidth
@@ -121,10 +117,8 @@ export default function RunnerSetupScreen() {
       <Modal visible={pickerVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>내 마커 색상 선택</Text>
-            <Text style={styles.modalDesc}>
-              지도와 러너 목록에서 나를 나타낼 색상을 골라주세요.
-            </Text>
+            <Text style={styles.modalTitle}>{content.colorModalTitle}</Text>
+            <Text style={styles.modalDesc}>{content.colorModalDesc}</Text>
 
             {/* 선택 색상 미리보기 */}
             <View style={styles.previewRow}>
@@ -150,13 +144,13 @@ export default function RunnerSetupScreen() {
                 style={[styles.modalBtn, styles.modalBtnCancel]}
                 onPress={() => setPickerVisible(false)}
               >
-                <Text style={styles.modalBtnText}>취소</Text>
+                <Text style={styles.modalBtnText}>{content.cancelButton}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: tempColor }]}
                 onPress={() => { setSelectedColor(tempColor); setPickerVisible(false); }}
               >
-                <Text style={styles.modalBtnText}>확인</Text>
+                <Text style={styles.modalBtnText}>{content.confirmButton}</Text>
               </TouchableOpacity>
             </View>
           </View>
