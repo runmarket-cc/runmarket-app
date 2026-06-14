@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from 'expo-router';
 import { Colors } from '../constants/theme';
 import { useAuthStore } from '../store/authStore';
 
@@ -25,8 +26,23 @@ export function WebScreen({ uri }: WebScreenProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const currentUrl = useRef(uri);
   const accessToken = useAuthStore((s) => s.accessToken);
   const email = useAuthStore((s) => s.email);
+
+  // 이미 활성화된 탭을 다시 누르면 WebView를 기본 URL로 되돌린다.
+  // (예: 대회 상세를 보다가 '대회 정보' 탭을 다시 누르면 대회 목록 홈으로 이동)
+  useEffect(() => {
+    const norm = (u: string) => u.replace(/[?#].*$/, '').replace(/\/$/, '');
+    const unsub = (navigation as any).addListener?.('tabPress', () => {
+      if (!(navigation as any).isFocused?.()) return;
+      if (norm(currentUrl.current) !== norm(uri)) {
+        webviewRef.current?.injectJavaScript(`window.location.href=${JSON.stringify(uri)};true;`);
+      }
+    });
+    return unsub;
+  }, [navigation, uri]);
 
   // 각 탭은 별도의 WebView 인스턴스라 로그인 WebView의 localStorage(JWT)가 공유되지
   // 않는다. 그대로 두면 인증이 필요한 /mypage 같은 보호 라우트가 홈으로 리다이렉트된다.
@@ -91,6 +107,7 @@ export function WebScreen({ uri }: WebScreenProps) {
           // 주의: Android는 SPA의 pushState/replaceState에도 onLoadStart를 발생시키지만
           // onLoadEnd는 오지 않음 → onLoadStart로 오버레이를 켜면 무한로딩에 빠짐
           onLoadEnd={() => setLoading(false)}
+          onNavigationStateChange={(s) => { currentUrl.current = s.url; }}
           onError={() => { setLoading(false); setError(true); }}
           // 렌더러 프로세스가 죽었을 때 흰 화면으로 멈추지 않도록 자동 복구
           onRenderProcessGone={handleProcessGone}
