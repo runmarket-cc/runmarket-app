@@ -33,6 +33,7 @@ struct SpectatorActivityAttributes: ActivityAttributes {
 }
 
 private let navyBG = Color(red: 0.09, green: 0.14, blue: 0.24)
+private let amber = Color(red: 1.0, green: 0.541, blue: 0.0) // #FF8A00
 
 // MARK: - Runner Lock Screen View
 
@@ -267,10 +268,11 @@ const withLiveActivities: ConfigPlugin = (config) => {
     const targetUuid = widgetTarget.uuid;
 
     // 소스 파일 추가
+    // ⚠️ addSourceFile(path, opt, group) — target 은 opt.target 으로 넘겨야 한다.
+    //    3번째 인자(group)에 targetUuid 를 넘기면 PBXVariantGroup 조회 중 크래시난다.
     xcodeProject.addSourceFile(
       `${WIDGET_TARGET}/RunmarketWidget.swift`,
-      {},
-      targetUuid
+      { target: targetUuid }
     );
 
     // 프레임워크 추가
