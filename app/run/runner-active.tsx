@@ -231,7 +231,7 @@ export default function RunnerActiveScreen() {
   const handleStop = () => {
     Alert.alert('달리기 종료', '런을 종료하시겠습니까?', [
       { text: '계속 달리기', style: 'cancel' },
-      { text: '종료', style: 'destructive', onPress: () => router.replace('/(tabs)/run') },
+      { text: '종료', style: 'destructive', onPress: () => router.replace('/(tabs)') },
     ]);
   };
 

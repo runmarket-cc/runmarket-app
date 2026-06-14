@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../src/store/authStore';
 import BrandSplash from '../src/components/BrandSplash';
+import { RunMenuOverlay } from '../src/components/RunMenuOverlay';
 
 // Keep the native launch screen up until the animated brand splash takes over.
 // Guarded so a not-yet-rebuilt dev client (missing the native module) won't crash.
@@ -37,6 +38,7 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
       </Stack>
+      <RunMenuOverlay />
       {!splashDone && (
         <BrandSplash ready={initialized} onFinish={() => setSplashDone(true)} />
       )}
