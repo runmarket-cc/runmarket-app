@@ -25,8 +25,9 @@ export function RunMenuOverlay() {
     }, 1000);
   };
 
-  // FAB이 떠 있는 높이(탭바 높이 + 하단 인셋) 바로 위에 메뉴를 배치한다.
-  const bottom = 64 + insets.bottom + 30;
+  // 떠 있는 알약형 바 위로 솟은 FAB 바로 위에 메뉴를 배치한다.
+  // (RunTabBar: lift=max(insets.bottom,12), 알약 높이 58 + FAB 상단 절반 30 ≈ FAB 상단)
+  const bottom = Math.max(insets.bottom, 12) + 96;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
