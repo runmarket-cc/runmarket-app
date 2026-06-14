@@ -10,6 +10,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/theme';
+import { useAuthStore } from '../store/authStore';
 
 interface WebScreenProps {
   uri: string;
@@ -24,6 +25,23 @@ export function WebScreen({ uri }: WebScreenProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const insets = useSafeAreaInsets();
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const email = useAuthStore((s) => s.email);
+
+  // 각 탭은 별도의 WebView 인스턴스라 로그인 WebView의 localStorage(JWT)가 공유되지
+  // 않는다. 그대로 두면 인증이 필요한 /mypage 같은 보호 라우트가 홈으로 리다이렉트된다.
+  // 앱이 보관 중인 토큰을 콘텐츠 로드 전에 localStorage에 심어 세션을 복원한다.
+  // 만료된 토큰은 심지 않는다(만료 토큰 주입 → 401 리다이렉트 회귀 방지, login.tsx와 동일 정책).
+  const authInject = accessToken && email
+    ? `(function(){try{
+         var t=${JSON.stringify(accessToken)};
+         var expired=false;
+         try{var p=JSON.parse(atob(t.split('.')[1]));expired=!!(p.exp&&p.exp*1000<Date.now());}catch(e){}
+         if(expired)return;
+         localStorage.setItem('runmarket_user_token',t);
+         localStorage.setItem('runmarket_user_email',${JSON.stringify(email)});
+       }catch(e){}})();true;`
+    : undefined;
 
   const injectedCSS = Platform.OS === 'android'
     ? `(function(){var s=document.createElement('style');s.textContent='body{padding-top:${insets.top}px!important;padding-bottom:${insets.bottom}px!important}';document.head.appendChild(s);})();true;`
@@ -87,6 +105,8 @@ export function WebScreen({ uri }: WebScreenProps) {
           originWhitelist={['https://*', 'about:*']}
           startInLoadingState={false}
           injectedJavaScript={injectedCSS}
+          // SPA가 인증을 확인하기 전에 JWT를 localStorage에 복원한다.
+          injectedJavaScriptBeforeContentLoaded={authInject}
         />
       )}
     </View>
