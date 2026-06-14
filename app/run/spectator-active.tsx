@@ -68,7 +68,7 @@ export default function SpectatorActiveScreen() {
   const handleStop = () => {
     Alert.alert('관전 종료', '관전을 종료하시겠습니까?', [
       { text: '계속 보기', style: 'cancel' },
-      { text: '종료', style: 'destructive', onPress: () => router.replace('/(tabs)/run') },
+      { text: '종료', style: 'destructive', onPress: () => router.replace('/(tabs)') },
     ]);
   };
 
