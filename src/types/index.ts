@@ -33,6 +33,39 @@ export interface SpectatorMessage {
   data: RunnerPayload;
 }
 
+// ─── Run Record (로컬 기록 → 서버 업로드) ──────────────────────────────────────
+
+/** 업로드 페이로드의 궤적 한 점 */
+export interface RunRoutePoint {
+  lat: number;
+  lng: number;
+  t: number;        // epoch ms
+  acc?: number | null; // GPS 수평 정확도(m), 없으면 null
+}
+
+/**
+ * 러닝 1건 업로드 페이로드 (POST /api/v1/runs).
+ * clientRunId = `${runnerId}-${startedAt(ms)}` 로 기기/런 단위 고유.
+ * 서버는 이 값으로 멱등 처리(중복 업로드 무시)한다.
+ */
+export interface RunUploadPayload {
+  clientRunId: string;
+  groupId: string;
+  runnerId: string;
+  startedAt: string;   // ISO 8601
+  endedAt: string;     // ISO 8601
+  durationSec: number; // 시작~종료 경과(벽시계) 초
+  distanceKm: number;
+  avgPaceSecPerKm: number;
+  color?: string;
+  route: RunRoutePoint[];
+}
+
+/** 업로드 성공 응답 */
+export interface RunUploadResponse {
+  runId: string;
+}
+
 // ─── Screen Content (백엔드에서 불러오는 화면 문구) ─────────────────────────────
 
 export interface InfoCardContent {
