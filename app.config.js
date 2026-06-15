@@ -10,10 +10,13 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'cc.runmarket.app',
+      appleTeamId: '2M4S6DRRVU',
       infoPlist: {
         NSLocationWhenInUseUsageDescription: '러닝 중 현재 위치를 실시간으로 공유하기 위해 위치 권한이 필요합니다.',
         NSLocationAlwaysAndWhenInUseUsageDescription: '러닝 중 백그라운드에서도 위치를 공유하기 위해 위치 권한이 필요합니다.',
         ITSAppUsesNonExemptEncryption: false,
+        NSSupportsLiveActivities: true,
+        NSSupportsLiveActivitiesFrequentUpdates: true,
       },
     },
     android: {
@@ -38,7 +41,17 @@ module.exports = {
     },
     plugins: [
       './plugins/withGoogleMapsApiKey.ts',
-      './plugins/withLiveActivities.ts',
+      '@bacons/apple-targets',
+      [
+        'expo-build-properties',
+        {
+          // 로컬 Xcode 툴체인(Swift)과 Expo 배포 prebuilt xcframework의 Swift 버전이
+          // 달라 precompiled 모듈 링크가 실패하므로 RN/Expo 모듈을 소스에서 빌드한다.
+          ios: {
+            buildReactNativeFromSource: true,
+          },
+        },
+      ],
       'expo-router',
       'expo-secure-store',
       'react-native-maps',
