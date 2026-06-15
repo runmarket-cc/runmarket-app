@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../src/store/authStore';
 import BrandSplash from '../src/components/BrandSplash';
 import { RunMenuOverlay } from '../src/components/RunMenuOverlay';
+import { syncPendingRuns } from '../src/services/runSync';
 
 // Keep the native launch screen up until the animated brand splash takes over.
 // Guarded so a not-yet-rebuilt dev client (missing the native module) won't crash.
@@ -29,7 +30,10 @@ export default function RootLayout() {
     if (!initialized) return;
     if (!isLoggedIn) {
       router.replace('/(auth)/login');
+      return;
     }
+    // 로그인 상태에서 앱 시작 시: 미종료(고아) 런 복구 + 미업로드 기록 재전송.
+    syncPendingRuns().catch(() => {});
   }, [initialized, isLoggedIn]);
 
   return (

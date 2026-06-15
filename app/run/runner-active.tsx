@@ -12,6 +12,8 @@ import { useRunnerSocket } from '../../src/hooks/useRunnerSocket';
 import { useRunnerLockScreen } from '../../src/hooks/useLockScreenActivity';
 import { RunnerListPanel, getRunnerColor } from '../../src/components/RunnerListPanel';
 import { RUN_LOCATION_TASK, setLocationHandler } from '../../src/services/backgroundLocation';
+import { createRun, appendPoint, finishRun } from '../../src/services/runRecordStore';
+import { syncPendingRuns } from '../../src/services/runSync';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -56,6 +58,8 @@ export default function RunnerActiveScreen() {
   const lastCoordRef = useRef<Coord | null>(null);
   const lastSendTimeRef = useRef<number>(0);
   const distanceRef = useRef<number>(0);
+  // 로컬 기록(SQLite) row id. 권한 허용 후 생성되며, 종료 시 finalize 대상.
+  const runRecordIdRef = useRef<number | null>(null);
 
   const [connected, setConnected] = useState(false);
   const [path, setPath] = useState<Coord[]>([]);
@@ -135,7 +139,7 @@ export default function RunnerActiveScreen() {
         mapRef.current?.animateCamera({ center: coord, zoom: 14 }, { duration: 500 });
       }
 
-      // 3초마다 소켓 전송 & 잠금 화면 업데이트
+      // 3초마다 소켓 전송 & 잠금 화면 업데이트 & 로컬 기록 적재
       const now = Date.now();
       if (now - lastSendTimeRef.current >= LOCATION_INTERVAL_MS) {
         lastSendTimeRef.current = now;
@@ -150,6 +154,18 @@ export default function RunnerActiveScreen() {
           time: timeSec,
           color,
         });
+
+        // 실시간 전송과 별개로 궤적을 로컬에 적재(기록의 source of truth).
+        // 소켓/네트워크가 끊겨도 여기 쌓인 점들로 기록이 보존된다.
+        const recordId = runRecordIdRef.current;
+        if (recordId != null) {
+          appendPoint(recordId, {
+            lat: coord.latitude,
+            lng: coord.longitude,
+            accuracy: loc.coords.accuracy ?? null,
+            ts: now,
+          }).catch(() => {});
+        }
       }
     };
 
@@ -159,6 +175,20 @@ export default function RunnerActiveScreen() {
         Alert.alert('위치 권한 필요', '위치 권한을 허용해야 달리기를 시작할 수 있습니다.');
         router.back();
         return;
+      }
+
+      // 로컬 기록 시작: 이후 들어오는 궤적이 이 row에 적재된다.
+      if (runRecordIdRef.current == null && groupId && runnerId) {
+        try {
+          runRecordIdRef.current = await createRun({
+            groupId,
+            runnerId,
+            color,
+            startedAt: startTimeRef.current,
+          });
+        } catch (e) {
+          console.warn('[RunnerActive] 기록 생성 실패:', e);
+        }
       }
 
       // 백그라운드 권한: 화면이 꺼져도 위치 전송을 계속하기 위해 필요
@@ -231,7 +261,24 @@ export default function RunnerActiveScreen() {
   const handleStop = () => {
     Alert.alert('달리기 종료', '런을 종료하시겠습니까?', [
       { text: '계속 달리기', style: 'cancel' },
-      { text: '종료', style: 'destructive', onPress: () => router.replace('/(tabs)') },
+      {
+        text: '종료',
+        style: 'destructive',
+        onPress: async () => {
+          const recordId = runRecordIdRef.current;
+          if (recordId != null) {
+            // 저장된 궤적으로 요약을 확정(finished)한 뒤 업로드를 시도한다.
+            // 업로드 실패는 무시 — finished 상태로 남아 다음 동기화 때 재시도된다.
+            try {
+              await finishRun(recordId, Date.now());
+            } catch (e) {
+              console.warn('[RunnerActive] 기록 종료 실패:', e);
+            }
+            syncPendingRuns().catch(() => {});
+          }
+          router.replace('/(tabs)');
+        },
+      },
     ]);
   };
 

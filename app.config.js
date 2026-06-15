@@ -54,6 +54,7 @@ module.exports = {
       ],
       'expo-router',
       'expo-secure-store',
+      'expo-sqlite',
       'react-native-maps',
       [
         'expo-splash-screen',
