@@ -29,6 +29,17 @@
   },
   "submit": {
     "preview": {},
-    "production": {}
+    "production": {
+      "ios": {
+        "appleTeamId": "2M4S6DRRVU",
+        "bundleIdentifier": "cc.runmarket.app",
+        "ascAppId": "6779493827"
+      },
+      "android": {
+        "track": "production",
+        "releaseStatus": "completed",
+        "applicationId": "cc.runmarket.app"
+      }
+    }
   }
 }
