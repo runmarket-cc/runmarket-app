@@ -132,6 +132,15 @@ module.exports = {
           sounds: [],
         },
       ],
+      [
+        // 크래시/에러 모니터링. EAS 빌드 시 SENTRY_AUTH_TOKEN 환경변수로 소스맵·디버그 심볼을
+        // 자동 업로드한다(authToken은 비밀이므로 여기에 넣지 않고 eas env로 주입).
+        '@sentry/react-native',
+        {
+          organization: 'runmarket',
+          project: 'react-native',
+        },
+      ],
     ],
     extra: {
       router: {},
