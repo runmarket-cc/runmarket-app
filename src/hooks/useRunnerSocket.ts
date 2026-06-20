@@ -4,6 +4,12 @@ import type { RunnerPayload, SpectatorMessage } from '../types';
 const WS_BASE = 'wss://pulse.runmarket.cc';
 const RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_ATTEMPTS = 5;
+// 다른 러너가 3초 주기 전송을 멈추면(종료·이탈·장시간 끊김) 마지막 위치 마커가
+// 지도에 영구히 남는 "유령 러너"가 된다. 일정 시간 미수신 시 목록에서 제거한다.
+// 긴 터널·지하 구간에서는 GPS/네트워크가 1분 넘게 끊길 수 있으므로, 멀쩡히 달리는
+// 러너가 잠깐 사라지지 않도록 90초로 넉넉히 둔다(실제 종료 시 그만큼 늦게 사라짐).
+const STALE_TTL_MS = 90000;
+const PRUNE_INTERVAL_MS = 5000;
 
 export type OtherRunnerState = RunnerPayload & { runnerId: string; updatedAt: number };
 
@@ -88,6 +94,25 @@ setOtherRunners((prev) => {
       wsRef.current = null;
     };
   }, [connect]);
+
+  // 오래된(유령) 러너 주기적 제거. 변화가 없으면 같은 Map을 반환해 리렌더를 막는다.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      setOtherRunners((prev) => {
+        let changed = false;
+        const next = new Map(prev);
+        for (const [id2, state] of next) {
+          if (now - state.updatedAt > STALE_TTL_MS) {
+            next.delete(id2);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, PRUNE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
 
   const sendLocation = useCallback((payload: RunnerPayload) => {
     const ws = wsRef.current;
