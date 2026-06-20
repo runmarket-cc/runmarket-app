@@ -17,6 +17,12 @@ import { syncPendingRuns } from '../../src/services/runSync';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
+// GPS 잡음/정지 필터 (runRecordStore의 권위 계산과 동일한 기준).
+// 멈춰 있을 때 GPS가 흔들려 생기는 가짜 이동을 거리·페이스·궤적에서 제외한다.
+const MAX_ACCURACY_M = 30; // 정확도가 이보다 나쁜 점은 무시
+const MAX_SPEED_MPS = 8;   // ≈2:05/km 초과 이동은 GPS 튐으로 간주
+const MIN_MOVE_M = 3;      // 직전 채택 지점 대비 이동량이 이보다 작으면 멈춤으로 간주
+
 interface Coord { latitude: number; longitude: number }
 
 /** 두 좌표 간 거리 (Haversine, km) */
@@ -56,8 +62,12 @@ export default function RunnerActiveScreen() {
   const centeredRef = useRef(false);
   const startTimeRef = useRef<number>(0);
   const lastCoordRef = useRef<Coord | null>(null);
+  // 직전 "채택 지점"의 수신 시각(ms). 정지 판정(구간 속도 계산)에 쓴다.
+  const lastPointTsRef = useRef<number>(0);
   const lastSendTimeRef = useRef<number>(0);
   const distanceRef = useRef<number>(0);
+  // 가장 최근에 산정한 페이스(초/km). 정지 구간에는 갱신하지 않아 화면·소켓이 일관된다.
+  const paceSecPerKmRef = useRef<number>(0);
   // 로컬 기록(SQLite) row id. 시작 시 생성되며, 종료 시 finalize 대상.
   const runRecordIdRef = useRef<number | null>(null);
 
@@ -143,21 +153,43 @@ export default function RunnerActiveScreen() {
       longitude: loc.coords.longitude,
     };
 
+    const now = Date.now();
     setCurrentCoord(coord);
-    setPath((prev) => [...prev, coord]);
 
-    // 거리 누적
+    // ── 거리·페이스 누적 (GPS 잡음/정지 구간은 제외) ──
+    // 직전 채택 지점과의 이동량·속도로 정상 이동인지 판정한다.
+    // - 정확도가 나쁘거나, 이동량이 잡음 수준이거나, 속도가 비현실적이면 "멈춤"으로 보고 무시
+    // - 무시할 때는 기준점을 갱신하지 않아, 천천히 걸어도 누적이 끊기지 않는다
+    let moved = true;
     if (lastCoordRef.current) {
-      const delta = haversine(lastCoordRef.current, coord);
-      setDistance((d) => {
-        const newDist = d + delta;
-        distanceRef.current = newDist;
-        const timeSec = currentElapsedMs() / 1000;
-        if (newDist > 0) setPaceSecPerKm(timeSec / newDist);
-        return newDist;
-      });
+      const delta = haversine(lastCoordRef.current, coord); // km
+      const movedM = delta * 1000;
+      const dtSec = lastPointTsRef.current ? (now - lastPointTsRef.current) / 1000 : 0;
+      const speedMps = dtSec > 0 ? movedM / dtSec : 0;
+      const noiseM = Math.max(MIN_MOVE_M, loc.coords.accuracy ?? 0);
+
+      if ((loc.coords.accuracy ?? 0) > MAX_ACCURACY_M
+        || movedM < noiseM
+        || speedMps > MAX_SPEED_MPS) {
+        moved = false; // 비정상 페이스 = 멈춤(또는 GPS 튐) → 거리·페이스에 반영하지 않음
+      } else {
+        setDistance((d) => {
+          const newDist = d + delta;
+          distanceRef.current = newDist;
+          const timeSec = currentElapsedMs() / 1000;
+          const pace = newDist > 0 ? timeSec / newDist : 0;
+          setPaceSecPerKm(pace);
+          paceSecPerKmRef.current = pace;
+          return newDist;
+        });
+      }
     }
-    lastCoordRef.current = coord;
+    // 채택한 점에서만 기준점·궤적을 갱신 (정지 중 지그재그 방지)
+    if (moved) {
+      lastCoordRef.current = coord;
+      lastPointTsRef.current = now;
+      setPath((prev) => [...prev, coord]);
+    }
 
     // 첫 GPS 수신 시에만 내 위치로 이동 (이후 자동 추적 없음)
     if (!centeredRef.current) {
@@ -166,12 +198,11 @@ export default function RunnerActiveScreen() {
     }
 
     // 3초마다 소켓 전송 & 잠금 화면 업데이트 & 로컬 기록 적재
-    const now = Date.now();
     if (now - lastSendTimeRef.current >= LOCATION_INTERVAL_MS) {
       lastSendTimeRef.current = now;
       const timeSec = Math.floor(currentElapsedMs() / 1000);
       const currentDist = distanceRef.current;
-      const currentPace = formatPace(currentDist > 0 ? timeSec / currentDist : 0);
+      const currentPace = formatPace(paceSecPerKmRef.current);
       sendLocation({
         lat: coord.latitude,
         lng: coord.longitude,
@@ -273,6 +304,8 @@ export default function RunnerActiveScreen() {
     accumulatedMsRef.current = 0;
     segmentStartRef.current = Date.now();
     lastCoordRef.current = null;
+    lastPointTsRef.current = 0;
+    paceSecPerKmRef.current = 0;
     lastSendTimeRef.current = 0;
     runStateRef.current = 'running';
     setRunState('running');
@@ -325,6 +358,7 @@ export default function RunnerActiveScreen() {
     accumulatedMsRef.current += Date.now() - segmentStartRef.current;
     // 재개 시 일시정지 동안의 이동이 한 번에 거리로 잡히지 않도록 기준점 리셋
     lastCoordRef.current = null;
+    lastPointTsRef.current = 0;
     runStateRef.current = 'paused';
     setRunState('paused');
     setElapsed(Math.floor(accumulatedMsRef.current / 1000));
@@ -335,6 +369,7 @@ export default function RunnerActiveScreen() {
     if (runStateRef.current !== 'paused') return;
     segmentStartRef.current = Date.now();
     lastCoordRef.current = null;
+    lastPointTsRef.current = 0;
     lastSendTimeRef.current = 0;
     runStateRef.current = 'running';
     setRunState('running');

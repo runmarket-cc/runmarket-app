@@ -56,6 +56,10 @@ export interface NewPointInput {
 // GPS 노이즈 필터 임계값 (거리 누적에서 제외하는 기준)
 const MAX_ACCURACY_M = 30;   // 정확도가 이보다 나쁜 점은 거리 계산에서 제외
 const MAX_SPEED_MPS = 8;     // 8 m/s(≈2:05/km) 초과 이동은 GPS 점프로 간주
+// 멈춰 있어도 GPS는 수 m씩 흔들린다. 직전 "채택 지점" 대비 이동량이 이 값(또는
+// 해당 점의 정확도)보다 작으면 멈춘 것으로 보고 거리에 넣지 않는다. 이렇게 하면
+// 정지 구간이 페이스를 비정상적으로 끌어올리지 않는다.
+const MIN_MOVE_M = 3;        // 직전 채택 지점 대비 최소 이동량(m)
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -145,19 +149,24 @@ export async function appendPoint(runId: number, p: NewPointInput): Promise<void
 /** 저장된 궤적으로부터 필터링된 누적 거리(km)를 계산 */
 function computeDistanceKm(points: PointRow[]): number {
   let meters = 0;
-  for (let i = 1; i < points.length; i += 1) {
-    const prev = points[i - 1];
-    const cur = points[i];
-    // 정확도가 나쁜 점은 거리에서 제외
-    if ((prev.accuracy ?? 0) > MAX_ACCURACY_M || (cur.accuracy ?? 0) > MAX_ACCURACY_M) {
-      continue;
-    }
+  // prev는 직전 "채택 지점"(기준점). 잡음/튐으로 건너뛴 점은 기준점이 되지 않으므로,
+  // 천천히 움직이는 동안에도 누적이 끊기지 않고 잡음만 걸러진다.
+  let prev: PointRow | null = null;
+  for (const cur of points) {
+    // 정확도가 나쁜 점은 기준점으로도, 거리로도 쓰지 않는다
+    if ((cur.accuracy ?? 0) > MAX_ACCURACY_M) continue;
+    if (!prev) { prev = cur; continue; }
+
     const d = haversineMeters(prev.lat, prev.lng, cur.lat, cur.lng);
     const dtSec = (cur.ts - prev.ts) / 1000;
     if (dtSec <= 0) continue;
-    // 비현실적 속도 점프(GPS 튐)는 제외
+    // 비현실적 속도 점프(GPS 튐)는 제외 (기준점 유지)
     if (d / dtSec > MAX_SPEED_MPS) continue;
+    // 이동량이 잡음 수준이면 멈춘 것으로 보고 제외 (기준점 유지)
+    if (d < Math.max(MIN_MOVE_M, cur.accuracy ?? 0)) continue;
+
     meters += d;
+    prev = cur;
   }
   return meters / 1000;
 }
