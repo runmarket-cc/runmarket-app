@@ -347,8 +347,12 @@ export default function RunnerActiveScreen() {
               console.warn('[RunnerActive] 기록 종료 실패:', e);
             }
             syncPendingRuns().catch(() => {});
+            // 종료 직후 기록 확인 화면으로 전환(요약은 확정된 로컬 기록에서 다시 읽는다).
+            router.replace({ pathname: '/run/runner-result', params: { recordId: String(recordId) } });
+          } else {
+            // 기록 생성에 실패한 경우 보여줄 요약이 없으므로 홈으로 복귀.
+            router.replace('/(tabs)');
           }
-          router.replace('/(tabs)');
         },
       },
     ]);

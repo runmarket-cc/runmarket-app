@@ -219,6 +219,13 @@ export async function getLastPointTs(runId: number): Promise<number | null> {
   return row?.ts ?? null;
 }
 
+/** 특정 런 단건 조회 (종료 후 기록 확인 화면용) */
+export async function getRun(runId: number): Promise<RunRow | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
+  return row ?? null;
+}
+
 /** 특정 런의 궤적 (시간/적재 순) */
 export async function getPoints(runId: number): Promise<PointRow[]> {
   const db = await getDb();
