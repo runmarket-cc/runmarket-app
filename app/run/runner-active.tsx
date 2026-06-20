@@ -322,6 +322,23 @@ export default function RunnerActiveScreen() {
     setRunState('running');
   }, []);
 
+  // ── 내 위치로 재중심: 내비의 "재중심" 버튼처럼 카메라를 현재 위치로 이동 ──
+  // 동료 위치를 보려고 지도를 패닝한 뒤, 한 번 탭으로 내 위치로 돌아오기 위함.
+  const recenter = useCallback(async () => {
+    let target = currentCoord;
+    if (!target) {
+      // 아직 콜백으로 받은 위치가 없으면 즉석에서 1회 조회.
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        target = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        setCurrentCoord(target);
+      } catch {
+        return;
+      }
+    }
+    mapRef.current?.animateCamera({ center: target, zoom: 16 }, { duration: 500 });
+  }, [currentCoord]);
+
   const handleStop = useCallback(() => {
     if (runStateRef.current === 'idle') return;
     Alert.alert('달리기 종료', '런을 종료하시겠습니까?', [
@@ -361,41 +378,55 @@ export default function RunnerActiveScreen() {
   return (
     <View style={styles.container}>
       {/* 지도 */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        showsUserLocation
-        followsUserLocation={false}
-        initialRegion={
-          currentCoord
-            ? { ...currentCoord, latitudeDelta: 0.05, longitudeDelta: 0.05 }
-            : { latitude: 37.5665, longitude: 126.978, latitudeDelta: 0.05, longitudeDelta: 0.05 }
-        }
-      >
-        {path.length > 1 && (
-          <Polyline coordinates={path} strokeColor={Colors.amber} strokeWidth={4} />
-        )}
-        {otherRunnerList.map((runner) => (
-          <Marker
-            key={runner.runnerId}
-            coordinate={{ latitude: runner.lat, longitude: runner.lng }}
-            title={runner.runnerId}
-            description={`${(runner.distance ?? 0).toFixed(2)}km · ${runner.pace ?? '--:--'}/km`}
-          >
-            <View style={[styles.otherMarker, { backgroundColor: runner.color ?? getRunnerColor(runner.runnerId) }]}>
-              <Text style={styles.myMarkerText}>🏃</Text>
-            </View>
-          </Marker>
-        ))}
+      <View style={styles.mapWrap}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          showsUserLocation
+          followsUserLocation={false}
+          initialRegion={
+            currentCoord
+              ? { ...currentCoord, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+              : { latitude: 37.5665, longitude: 126.978, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+          }
+        >
+          {path.length > 1 && (
+            <Polyline coordinates={path} strokeColor={Colors.amber} strokeWidth={4} />
+          )}
+          {otherRunnerList.map((runner) => (
+            <Marker
+              key={runner.runnerId}
+              coordinate={{ latitude: runner.lat, longitude: runner.lng }}
+              title={runner.runnerId}
+              description={`${(runner.distance ?? 0).toFixed(2)}km · ${runner.pace ?? '--:--'}/km`}
+            >
+              <View style={[styles.otherMarker, { backgroundColor: runner.color ?? getRunnerColor(runner.runnerId) }]}>
+                <Text style={styles.myMarkerText}>🏃</Text>
+              </View>
+            </Marker>
+          ))}
+          {currentCoord && (
+            <Marker coordinate={currentCoord} title="나">
+              <View style={[styles.myMarker, { backgroundColor: color ?? Colors.amber }]}>
+                <Text style={styles.myMarkerText}>🏃</Text>
+              </View>
+            </Marker>
+          )}
+        </MapView>
+
+        {/* 내 위치로 재중심 버튼 (내비의 재중심 버튼과 동일) */}
         {currentCoord && (
-          <Marker coordinate={currentCoord} title="나">
-            <View style={[styles.myMarker, { backgroundColor: color ?? Colors.amber }]}>
-              <Text style={styles.myMarkerText}>🏃</Text>
-            </View>
-          </Marker>
+          <TouchableOpacity
+            style={styles.recenterBtn}
+            onPress={recenter}
+            activeOpacity={0.8}
+            accessibilityLabel="내 위치로 이동"
+          >
+            <Text style={styles.recenterIcon}>◎</Text>
+          </TouchableOpacity>
         )}
-      </MapView>
+      </View>
 
       {/* 상태 배지 */}
       <View
@@ -479,7 +510,27 @@ function StatBox({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  mapWrap: { flex: 1 },
   map: { flex: 1 },
+
+  recenterBtn: {
+    position: 'absolute',
+    right: Spacing[4],
+    bottom: Spacing[4],
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // 지도 위에서 떠 보이도록 그림자
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  recenterIcon: { fontSize: 24, color: Colors.navy, lineHeight: 28 },
 
   statusBadge: {
     position: 'absolute',
