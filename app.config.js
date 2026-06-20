@@ -18,6 +18,56 @@ module.exports = {
         NSSupportsLiveActivities: true,
         NSSupportsLiveActivitiesFrequentUpdates: true,
       },
+      // App Store 제출용 Privacy Manifest (PrivacyInfo.xcprivacy 로 생성됨).
+      // 웹(로그인 페이지)의 개인정보처리방침과 별개로, 바이너리에 포함돼야 심사를 통과한다.
+      privacyManifests: {
+        // 광고/크로스앱 추적을 하지 않음(IDFA 미사용).
+        NSPrivacyTracking: false,
+        // 앱이 수집하는 데이터 유형 신고. 모두 앱 기능 목적이며 추적에는 사용하지 않는다.
+        NSPrivacyCollectedDataTypes: [
+          {
+            // 러닝 중 실시간 위치 공유 + 기록 저장
+            NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypePreciseLocation',
+            NSPrivacyCollectedDataTypeLinked: true,
+            NSPrivacyCollectedDataTypeTracking: false,
+            NSPrivacyCollectedDataTypePurposes: [
+              'NSPrivacyCollectedDataTypePurposeAppFunctionality',
+            ],
+          },
+          {
+            // 로그인 계정 식별용 이메일
+            NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeEmailAddress',
+            NSPrivacyCollectedDataTypeLinked: true,
+            NSPrivacyCollectedDataTypeTracking: false,
+            NSPrivacyCollectedDataTypePurposes: [
+              'NSPrivacyCollectedDataTypePurposeAppFunctionality',
+            ],
+          },
+        ],
+        // Required Reason API 신고 (RN/Expo 런타임이 공통으로 사용).
+        NSPrivacyAccessedAPITypes: [
+          {
+            // UserDefaults: CA92.1 = 앱 자체 동작을 위한 접근
+            NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults',
+            NSPrivacyAccessedAPITypeReasons: ['CA92.1'],
+          },
+          {
+            // 파일 타임스탬프: C617.1 = 앱 컨테이너 내부 파일 접근
+            NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryFileTimestamp',
+            NSPrivacyAccessedAPITypeReasons: ['C617.1'],
+          },
+          {
+            // 시스템 부팅 시각: 35F9.1 = 앱 내 이벤트 시간 측정
+            NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategorySystemBootTime',
+            NSPrivacyAccessedAPITypeReasons: ['35F9.1'],
+          },
+          {
+            // 디스크 여유 공간: E174.1 = 쓰기 전 공간 확인
+            NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryDiskSpace',
+            NSPrivacyAccessedAPITypeReasons: ['E174.1'],
+          },
+        ],
+      },
     },
     android: {
       adaptiveIcon: {

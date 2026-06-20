@@ -33,6 +33,10 @@ yarn-error.*
 # local env files
 .env*.local
 
+# 스토어 제출 자격증명 (ASC API Key .p8, Google 서비스 계정 JSON 등)
+credentials/
+*-service-account.json
+
 # typescript
 *.tsbuildinfo
 
