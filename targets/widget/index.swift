@@ -71,8 +71,9 @@ struct RunnerLiveActivityWidget: Widget {
             } compactLeading: {
                 Text("🏃")
             } compactTrailing: {
-                Image(systemName: "location.fill")
+                Text("공유 중")
                     .font(.caption2)
+                    .fontWeight(.semibold)
                     .foregroundColor(.green)
             } minimal: {
                 Text("🏃")
