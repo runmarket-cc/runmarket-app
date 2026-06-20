@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Alert, TouchableOpacity, Platform,
+  View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Linking,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Clipboard from 'expo-clipboard';
@@ -217,9 +217,22 @@ export default function RunnerActiveScreen() {
   const startTracking = useCallback(async () => {
     if (runStateRef.current !== 'idle') return;
 
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('위치 권한 필요', '위치 권한을 허용해야 달리기를 시작할 수 있습니다.');
+    const fg = await Location.requestForegroundPermissionsAsync();
+    if (fg.status !== 'granted') {
+      // canAskAgain=false면 이미 영구 거부되어 시스템 다이얼로그가 더는 안 뜬다.
+      // 이 경우 앱 설정으로 직접 보내야 사용자가 권한을 복구할 수 있다.
+      Alert.alert(
+        '위치 권한 필요',
+        fg.canAskAgain
+          ? '위치 권한을 허용해야 달리기를 시작할 수 있습니다.'
+          : '위치 권한이 거부되어 있습니다. 설정 > 런마켓에서 위치 접근을 "앱 사용 중"으로 허용해주세요.',
+        fg.canAskAgain
+          ? [{ text: '확인' }]
+          : [
+              { text: '취소', style: 'cancel' },
+              { text: '설정 열기', onPress: () => Linking.openSettings() },
+            ],
+      );
       return;
     }
 
@@ -285,10 +298,15 @@ export default function RunnerActiveScreen() {
       });
       backgroundStartedRef.current = true;
     } else {
-      // 백그라운드 권한 거부 시 기존 포그라운드 추적으로 폴백
+      // 백그라운드 권한 거부 시 기존 포그라운드 추적으로 폴백.
+      // 설정으로 바로 갈 수 있게 안내(폴백 추적은 아래에서 그대로 시작됨).
       Alert.alert(
         '백그라운드 위치 권한',
         '위치 권한을 "항상 허용"으로 설정하지 않으면 화면이 꺼졌을 때 위치 전송이 중단될 수 있습니다.',
+        [
+          { text: '이대로 진행', style: 'cancel' },
+          { text: '설정 열기', onPress: () => Linking.openSettings() },
+        ],
       );
       subRef.current = await Location.watchPositionAsync(
         {
