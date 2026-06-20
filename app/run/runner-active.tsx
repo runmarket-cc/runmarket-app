@@ -54,12 +54,29 @@ export default function RunnerActiveScreen() {
 
   const mapRef = useRef<MapView>(null);
   const centeredRef = useRef(false);
-  const startTimeRef = useRef<number>(Date.now());
+  const startTimeRef = useRef<number>(0);
   const lastCoordRef = useRef<Coord | null>(null);
   const lastSendTimeRef = useRef<number>(0);
   const distanceRef = useRef<number>(0);
-  // 로컬 기록(SQLite) row id. 권한 허용 후 생성되며, 종료 시 finalize 대상.
+  // 로컬 기록(SQLite) row id. 시작 시 생성되며, 종료 시 finalize 대상.
   const runRecordIdRef = useRef<number | null>(null);
+
+  // ── 러닝 상태 머신: idle(시작 전) → running ⇄ paused → (종료) ──
+  // ref는 위치 콜백 클로저에서 최신 상태를 읽기 위함, state는 UI 갱신용.
+  const runStateRef = useRef<'idle' | 'running' | 'paused'>('idle');
+  const [runState, setRunState] = useState<'idle' | 'running' | 'paused'>('idle');
+  // 경과 시간 누적(ms). 일시정지 구간은 제외된다.
+  const accumulatedMsRef = useRef<number>(0);
+  // 현재 running 구간이 시작된 시각(ms). running일 때만 유효.
+  const segmentStartRef = useRef<number>(0);
+  // 위치 구독/백그라운드 추적 핸들 (정리 시 해제).
+  const subRef = useRef<Location.LocationSubscription | null>(null);
+  const backgroundStartedRef = useRef(false);
+
+  // 일시정지를 제외한 현재까지의 경과 시간(ms).
+  const currentElapsedMs = () =>
+    accumulatedMsRef.current
+    + (runStateRef.current === 'running' ? Date.now() - segmentStartRef.current : 0);
 
   const [connected, setConnected] = useState(false);
   const [path, setPath] = useState<Coord[]>([]);
@@ -82,8 +99,15 @@ export default function RunnerActiveScreen() {
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
   }, []);
 
-  // ── 잠금 화면 위젯 ──
-  useRunnerLockScreen(groupId && runnerId ? { runnerId, groupId } : null);
+  // ── 진입 시 안내: 시작 버튼을 눌러야 위치가 표시됨 ──
+  useEffect(() => {
+    Alert.alert('안내', '시작 버튼을 눌러야 현재 위치가 표시됩니다.');
+  }, []);
+
+  // ── 잠금 화면 위젯 (러닝 시작 후에만 활성화) ──
+  useRunnerLockScreen(
+    runState !== 'idle' && groupId && runnerId ? { runnerId, groupId } : null,
+  );
 
   // ── 소켓 ──
   const { sendLocation, otherRunners } = useRunnerSocket({
@@ -98,173 +122,221 @@ export default function RunnerActiveScreen() {
     (r) => r.runnerId && typeof r.lat === 'number' && typeof r.lng === 'number',
   );
 
-  // ── 경과 시간 타이머 ──
+  // ── 경과 시간 타이머 (running 중에만 진행) ──
   useEffect(() => {
     const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      if (runStateRef.current === 'running') {
+        setElapsed(Math.floor(currentElapsedMs() / 1000));
+      }
     }, 1000);
     return () => clearInterval(id);
   }, []);
 
-  // ── GPS 추적 (백그라운드 포함) ──
-  useEffect(() => {
-    let sub: Location.LocationSubscription | null = null;
-    let backgroundStarted = false;
+  // ── GPS 위치 콜백 ──
+  // running 상태에서만 거리/페이스를 누적하고 기록·소켓 전송을 수행한다.
+  // paused 상태에서 들어오는 점은 무시한다(일시정지 구간이 거리/시간에 포함되지 않도록).
+  const handleLocation = useCallback((loc: Location.LocationObject) => {
+    if (runStateRef.current !== 'running') return;
 
-    const handleLocation = (loc: Location.LocationObject) => {
-      const coord: Coord = {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      };
-
-      setCurrentCoord(coord);
-      setPath((prev) => [...prev, coord]);
-
-      // 거리 누적
-      if (lastCoordRef.current) {
-        const delta = haversine(lastCoordRef.current, coord);
-        setDistance((d) => {
-          const newDist = d + delta;
-          distanceRef.current = newDist;
-          const timeSec = (Date.now() - startTimeRef.current) / 1000;
-          if (newDist > 0) setPaceSecPerKm(timeSec / newDist);
-          return newDist;
-        });
-      }
-      lastCoordRef.current = coord;
-
-      // 첫 GPS 수신 시에만 내 위치로 이동 (이후 자동 추적 없음)
-      if (!centeredRef.current) {
-        centeredRef.current = true;
-        mapRef.current?.animateCamera({ center: coord, zoom: 14 }, { duration: 500 });
-      }
-
-      // 3초마다 소켓 전송 & 잠금 화면 업데이트 & 로컬 기록 적재
-      const now = Date.now();
-      if (now - lastSendTimeRef.current >= LOCATION_INTERVAL_MS) {
-        lastSendTimeRef.current = now;
-        const timeSec = Math.floor((now - startTimeRef.current) / 1000);
-        const currentDist = distanceRef.current;
-        const currentPace = formatPace(currentDist > 0 ? timeSec / currentDist : 0);
-        sendLocation({
-          lat: coord.latitude,
-          lng: coord.longitude,
-          pace: currentPace,
-          distance: Math.round(currentDist * 100) / 100,
-          time: timeSec,
-          color,
-        });
-
-        // 실시간 전송과 별개로 궤적을 로컬에 적재(기록의 source of truth).
-        // 소켓/네트워크가 끊겨도 여기 쌓인 점들로 기록이 보존된다.
-        const recordId = runRecordIdRef.current;
-        if (recordId != null) {
-          appendPoint(recordId, {
-            lat: coord.latitude,
-            lng: coord.longitude,
-            accuracy: loc.coords.accuracy ?? null,
-            ts: now,
-          }).catch(() => {});
-        }
-      }
+    const coord: Coord = {
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
     };
 
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('위치 권한 필요', '위치 권한을 허용해야 달리기를 시작할 수 있습니다.');
-        router.back();
-        return;
-      }
+    setCurrentCoord(coord);
+    setPath((prev) => [...prev, coord]);
 
-      // 로컬 기록 시작: 이후 들어오는 궤적이 이 row에 적재된다.
-      if (runRecordIdRef.current == null && groupId && runnerId) {
-        try {
-          runRecordIdRef.current = await createRun({
-            groupId,
-            runnerId,
-            color,
-            startedAt: startTimeRef.current,
-          });
-        } catch (e) {
-          console.warn('[RunnerActive] 기록 생성 실패:', e);
-        }
-      }
+    // 거리 누적
+    if (lastCoordRef.current) {
+      const delta = haversine(lastCoordRef.current, coord);
+      setDistance((d) => {
+        const newDist = d + delta;
+        distanceRef.current = newDist;
+        const timeSec = currentElapsedMs() / 1000;
+        if (newDist > 0) setPaceSecPerKm(timeSec / newDist);
+        return newDist;
+      });
+    }
+    lastCoordRef.current = coord;
 
-      // 백그라운드 권한: 화면이 꺼져도 위치 전송을 계속하기 위해 필요
-      // (Android 11+에서는 시스템 설정 화면이 열림)
-      let bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
-      if (bg?.status !== 'granted') {
-        // 권한 요청 전에 "항상 허용"이 왜 필요한지 안내 (확인을 눌러야 진행)
-        await new Promise<void>((resolve) => {
-          Alert.alert(
-            '위치 권한을 "항상 허용"으로 설정해주세요',
-            '러닝 중 홀드 버튼을 누르거나 화면이 꺼지면 앱이 백그라운드 상태가 됩니다.\n\n'
-            + '위치 권한이 "앱 사용 중에만 허용"이면 이때 위치 전송이 중단되어, 함께 달리는 러너와 관전자가 내 위치를 볼 수 없습니다.\n\n'
-            + '화면이 꺼져도 실시간 위치 공유를 유지하려면 다음 화면에서 반드시 "항상 허용"을 선택해주세요.',
-            [{ text: '확인', onPress: () => resolve() }],
-            { cancelable: false },
-          );
+    // 첫 GPS 수신 시에만 내 위치로 이동 (이후 자동 추적 없음)
+    if (!centeredRef.current) {
+      centeredRef.current = true;
+      mapRef.current?.animateCamera({ center: coord, zoom: 14 }, { duration: 500 });
+    }
+
+    // 3초마다 소켓 전송 & 잠금 화면 업데이트 & 로컬 기록 적재
+    const now = Date.now();
+    if (now - lastSendTimeRef.current >= LOCATION_INTERVAL_MS) {
+      lastSendTimeRef.current = now;
+      const timeSec = Math.floor(currentElapsedMs() / 1000);
+      const currentDist = distanceRef.current;
+      const currentPace = formatPace(currentDist > 0 ? timeSec / currentDist : 0);
+      sendLocation({
+        lat: coord.latitude,
+        lng: coord.longitude,
+        pace: currentPace,
+        distance: Math.round(currentDist * 100) / 100,
+        time: timeSec,
+        color,
+      });
+
+      // 실시간 전송과 별개로 궤적을 로컬에 적재(기록의 source of truth).
+      // 소켓/네트워크가 끊겨도 여기 쌓인 점들로 기록이 보존된다.
+      const recordId = runRecordIdRef.current;
+      if (recordId != null) {
+        appendPoint(recordId, {
+          lat: coord.latitude,
+          lng: coord.longitude,
+          accuracy: loc.coords.accuracy ?? null,
+          ts: now,
+        }).catch(() => {});
+      }
+    }
+  }, [sendLocation, color]);
+
+  // 위치 추적 중지 + 백그라운드 작업 해제 (정지/언마운트 공용)
+  const stopLocationTracking = useCallback(() => {
+    subRef.current?.remove();
+    subRef.current = null;
+    setLocationHandler(null);
+    if (backgroundStartedRef.current) {
+      backgroundStartedRef.current = false;
+      Location.hasStartedLocationUpdatesAsync(RUN_LOCATION_TASK)
+        .then((started) => {
+          if (started) return Location.stopLocationUpdatesAsync(RUN_LOCATION_TASK);
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  // 언마운트 시 추적 정리
+  useEffect(() => stopLocationTracking, [stopLocationTracking]);
+
+  // ── 시작: 권한 요청 → 기록 생성 → GPS 추적 시작 ──
+  const startTracking = useCallback(async () => {
+    if (runStateRef.current !== 'idle') return;
+
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('위치 권한 필요', '위치 권한을 허용해야 달리기를 시작할 수 있습니다.');
+      return;
+    }
+
+    // 로컬 기록 시작: 이후 들어오는 궤적이 이 row에 적재된다.
+    startTimeRef.current = Date.now();
+    if (runRecordIdRef.current == null && groupId && runnerId) {
+      try {
+        runRecordIdRef.current = await createRun({
+          groupId,
+          runnerId,
+          color,
+          startedAt: startTimeRef.current,
         });
-        bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
+      } catch (e) {
+        console.warn('[RunnerActive] 기록 생성 실패:', e);
       }
+    }
 
-      if (bg?.status === 'granted') {
-        setLocationHandler((locations) => locations.forEach(handleLocation));
-        await Location.startLocationUpdatesAsync(RUN_LOCATION_TASK, {
+    // 백그라운드 권한: 화면이 꺼져도 위치 전송을 계속하기 위해 필요
+    // (Android 11+에서는 시스템 설정 화면이 열림)
+    let bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
+    if (bg?.status !== 'granted') {
+      // 권한 요청 전에 "항상 허용"이 왜 필요한지 안내 (확인을 눌러야 진행)
+      await new Promise<void>((resolve) => {
+        Alert.alert(
+          '위치 권한을 "항상 허용"으로 설정해주세요',
+          '러닝 중 홀드 버튼을 누르거나 화면이 꺼지면 앱이 백그라운드 상태가 됩니다.\n\n'
+          + '위치 권한이 "앱 사용 중에만 허용"이면 이때 위치 전송이 중단되어, 함께 달리는 러너와 관전자가 내 위치를 볼 수 없습니다.\n\n'
+          + '화면이 꺼져도 실시간 위치 공유를 유지하려면 다음 화면에서 반드시 "항상 허용"을 선택해주세요.',
+          [{ text: '확인', onPress: () => resolve() }],
+          { cancelable: false },
+        );
+      });
+      bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
+    }
+
+    // 시간/거리 누적 초기화 후 running 진입 (위치 콜백이 처리되도록 추적 시작 전에 설정)
+    accumulatedMsRef.current = 0;
+    segmentStartRef.current = Date.now();
+    lastCoordRef.current = null;
+    lastSendTimeRef.current = 0;
+    runStateRef.current = 'running';
+    setRunState('running');
+    setElapsed(0);
+
+    if (bg?.status === 'granted') {
+      setLocationHandler((locations) => locations.forEach(handleLocation));
+      await Location.startLocationUpdatesAsync(RUN_LOCATION_TASK, {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 1000,
+        distanceInterval: 0,
+        // iOS: 화면이 꺼지거나 앱이 백그라운드로 가도 업데이트 유지
+        activityType: Location.ActivityType.Fitness,
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+        // Android: 포그라운드 서비스로 프로세스를 살려둬야 소켓 전송이 계속됨
+        foregroundService: {
+          notificationTitle: '런마켓 러닝 중',
+          notificationBody: '실시간으로 위치를 공유하고 있습니다.',
+          notificationColor: '#FF8A00',
+          killServiceOnDestroy: true,
+        },
+      });
+      backgroundStartedRef.current = true;
+    } else {
+      // 백그라운드 권한 거부 시 기존 포그라운드 추적으로 폴백
+      Alert.alert(
+        '백그라운드 위치 권한',
+        '위치 권한을 "항상 허용"으로 설정하지 않으면 화면이 꺼졌을 때 위치 전송이 중단될 수 있습니다.',
+      );
+      subRef.current = await Location.watchPositionAsync(
+        {
           accuracy: Location.Accuracy.BestForNavigation,
           timeInterval: 1000,
           distanceInterval: 0,
-          // iOS: 화면이 꺼지거나 앱이 백그라운드로 가도 업데이트 유지
-          activityType: Location.ActivityType.Fitness,
-          pausesUpdatesAutomatically: false,
-          showsBackgroundLocationIndicator: true,
-          // Android: 포그라운드 서비스로 프로세스를 살려둬야 소켓 전송이 계속됨
-          foregroundService: {
-            notificationTitle: '런마켓 러닝 중',
-            notificationBody: '실시간으로 위치를 공유하고 있습니다.',
-            notificationColor: '#FF8A00',
-            killServiceOnDestroy: true,
-          },
-        });
-        backgroundStarted = true;
-      } else {
-        // 백그라운드 권한 거부 시 기존 포그라운드 추적으로 폴백
-        Alert.alert(
-          '백그라운드 위치 권한',
-          '위치 권한을 "항상 허용"으로 설정하지 않으면 화면이 꺼졌을 때 위치 전송이 중단될 수 있습니다.',
-        );
-        sub = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.BestForNavigation,
-            timeInterval: 1000,
-            distanceInterval: 0,
-          },
-          handleLocation,
-        );
-      }
-    })();
+        },
+        handleLocation,
+      );
+    }
+  }, [groupId, runnerId, color, handleLocation]);
 
-    return () => {
-      sub?.remove();
-      setLocationHandler(null);
-      if (backgroundStarted) {
-        Location.hasStartedLocationUpdatesAsync(RUN_LOCATION_TASK)
-          .then((started) => {
-            if (started) return Location.stopLocationUpdatesAsync(RUN_LOCATION_TASK);
-          })
-          .catch(() => {});
-      }
-    };
-  }, [sendLocation]);
+  // ── 일시정지: 시간 누적을 멈추고 들어오는 위치를 무시 ──
+  const pauseTracking = useCallback(() => {
+    if (runStateRef.current !== 'running') return;
+    accumulatedMsRef.current += Date.now() - segmentStartRef.current;
+    // 재개 시 일시정지 동안의 이동이 한 번에 거리로 잡히지 않도록 기준점 리셋
+    lastCoordRef.current = null;
+    runStateRef.current = 'paused';
+    setRunState('paused');
+    setElapsed(Math.floor(accumulatedMsRef.current / 1000));
+  }, []);
 
-  const handleStop = () => {
+  // ── 계속: running 재개 ──
+  const resumeTracking = useCallback(() => {
+    if (runStateRef.current !== 'paused') return;
+    segmentStartRef.current = Date.now();
+    lastCoordRef.current = null;
+    lastSendTimeRef.current = 0;
+    runStateRef.current = 'running';
+    setRunState('running');
+  }, []);
+
+  const handleStop = useCallback(() => {
+    if (runStateRef.current === 'idle') return;
     Alert.alert('달리기 종료', '런을 종료하시겠습니까?', [
       { text: '계속 달리기', style: 'cancel' },
       {
         text: '종료',
         style: 'destructive',
         onPress: async () => {
+          // 종료 시점의 시간 누적을 확정하고 추적을 멈춘다.
+          if (runStateRef.current === 'running') {
+            accumulatedMsRef.current += Date.now() - segmentStartRef.current;
+          }
+          runStateRef.current = 'idle';
+          stopLocationTracking();
+
           const recordId = runRecordIdRef.current;
           if (recordId != null) {
             // 저장된 궤적으로 요약을 확정(finished)한 뒤 업로드를 시도한다.
@@ -280,7 +352,7 @@ export default function RunnerActiveScreen() {
         },
       },
     ]);
-  };
+  }, [stopLocationTracking]);
 
   return (
     <View style={styles.container}>
@@ -321,10 +393,20 @@ export default function RunnerActiveScreen() {
         )}
       </MapView>
 
-      {/* 연결 상태 배지 */}
-      <View style={[styles.statusBadge, connected ? styles.statusConnected : styles.statusDisconnected, { top: insets.top + Spacing[3] }]}>
+      {/* 상태 배지 */}
+      <View
+        style={[
+          styles.statusBadge,
+          runState === 'idle' ? styles.statusDisconnected
+            : runState === 'paused' ? styles.statusPaused
+              : connected ? styles.statusConnected : styles.statusDisconnected,
+          { top: insets.top + Spacing[3] },
+        ]}
+      >
         <Text style={styles.statusText}>
-          {connected ? '● 라이브 중' : '● 연결 중...'}
+          {runState === 'idle' ? '● 시작 대기 중'
+            : runState === 'paused' ? '❚❚ 일시정지됨'
+              : connected ? '● 라이브 중' : '● 연결 중...'}
         </Text>
       </View>
 
@@ -357,9 +439,26 @@ export default function RunnerActiveScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.stopBtn} onPress={handleStop} activeOpacity={0.8}>
-          <Text style={styles.stopBtnText}>■  종료</Text>
-        </TouchableOpacity>
+        {runState === 'idle' ? (
+          <TouchableOpacity style={styles.startBtn} onPress={startTracking} activeOpacity={0.8}>
+            <Text style={styles.controlBtnText}>▶  시작</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.controlRow}>
+            {runState === 'running' ? (
+              <TouchableOpacity style={[styles.controlBtn, styles.pauseBtn]} onPress={pauseTracking} activeOpacity={0.8}>
+                <Text style={styles.controlBtnText}>❚❚  일시정지</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={[styles.controlBtn, styles.resumeBtn]} onPress={resumeTracking} activeOpacity={0.8}>
+                <Text style={styles.controlBtnText}>▶  계속</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[styles.controlBtn, styles.stopBtn]} onPress={handleStop} activeOpacity={0.8}>
+              <Text style={styles.controlBtnText}>■  정지</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -388,6 +487,7 @@ const styles = StyleSheet.create({
   },
   statusConnected: { backgroundColor: Colors.statusOnline },
   statusDisconnected: { backgroundColor: Colors.statusOffline },
+  statusPaused: { backgroundColor: Colors.statusGray },
   statusText: { color: Colors.white, fontSize: FontSize.xs, fontWeight: '700' },
 
   myMarker: {
@@ -435,11 +535,21 @@ const styles = StyleSheet.create({
   metaRow: { alignItems: 'center' },
   metaText: { fontSize: FontSize.xs, color: Colors.mutedForeground },
 
-  stopBtn: {
-    backgroundColor: Colors.destructive,
+  startBtn: {
+    backgroundColor: Colors.amber,
     borderRadius: Radius.md,
     paddingVertical: Spacing[3],
     alignItems: 'center',
   },
-  stopBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
+  controlRow: { flexDirection: 'row', gap: Spacing[3] },
+  controlBtn: {
+    flex: 1,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing[3],
+    alignItems: 'center',
+  },
+  pauseBtn: { backgroundColor: Colors.statusGray },
+  resumeBtn: { backgroundColor: Colors.amber },
+  stopBtn: { backgroundColor: Colors.destructive },
+  controlBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
 });
