@@ -141,6 +141,17 @@ module.exports = {
           project: 'react-native',
         },
       ],
+      [
+        // 러닝 종료 후 iOS "건강/피트니스"에 달리기 운동을 저장한다.
+        // HealthKit capability·권한(Info.plist)을 자동으로 설정한다.
+        '@kingstinct/react-native-healthkit',
+        {
+          NSHealthUpdateUsageDescription:
+            '완료한 러닝을 Apple 건강의 달리기 운동으로 저장하기 위해 접근 권한이 필요합니다.',
+          NSHealthShareUsageDescription:
+            '소모 칼로리를 추정하기 위해 체중 정보를 읽는 데 사용합니다.',
+        },
+      ],
     ],
     extra: {
       router: {},

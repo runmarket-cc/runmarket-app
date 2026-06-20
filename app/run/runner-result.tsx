@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { getRun, getPoints, RunRow } from '../../src/services/runRecordStore';
+import { isHealthKitAvailable, saveRunToHealthKit } from '../../src/services/healthKit';
+
+type HealthSaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 interface Coord { latitude: number; longitude: number }
 
@@ -36,6 +39,7 @@ export default function RunnerResultScreen() {
   const [loading, setLoading] = useState(true);
   const [run, setRun] = useState<RunRow | null>(null);
   const [path, setPath] = useState<Coord[]>([]);
+  const [healthState, setHealthState] = useState<HealthSaveState>('idle');
 
   // 종료 직후 확정된 기록을 로컬 SQLite에서 다시 읽어온다(요약은 저장된 궤적 기준 권위값).
   useEffect(() => {
@@ -73,6 +77,26 @@ export default function RunnerResultScreen() {
   }, [path]);
 
   const goHome = () => router.replace('/(tabs)');
+
+  // iOS 건강 앱에 달리기 운동으로 저장. 권한 프롬프트는 최초 1회 시스템이 띄운다.
+  const saveToHealth = async () => {
+    if (run == null || healthState === 'saving' || healthState === 'saved') return;
+    setHealthState('saving');
+    try {
+      const { routeSaved } = await saveRunToHealthKit(run.id);
+      setHealthState('saved');
+      if (!routeSaved && path.length > 0) {
+        console.warn('[RunnerResult] 운동은 저장됐으나 경로 저장은 건너뜀');
+      }
+    } catch (e) {
+      console.warn('[RunnerResult] 건강 앱 저장 실패:', e);
+      setHealthState('error');
+      Alert.alert(
+        '건강 앱 저장 실패',
+        '권한을 허용했는지 확인해 주세요. 설정 > 개인정보 보호 및 보안 > 건강에서 권한을 켤 수 있습니다.',
+      );
+    }
+  };
 
   if (loading) {
     return (
@@ -129,6 +153,27 @@ export default function RunnerResultScreen() {
           <StatBox label="시간" value={formatDuration(durationSec)} />
           <StatBox label="평균 페이스" value={`${formatPace(paceSec)} /km`} />
         </View>
+
+        {isHealthKitAvailable() && (
+          <TouchableOpacity
+            style={[styles.healthBtn, healthState === 'saved' && styles.healthBtnDone]}
+            onPress={saveToHealth}
+            activeOpacity={0.8}
+            disabled={healthState === 'saving' || healthState === 'saved'}
+          >
+            {healthState === 'saving' ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <Text style={styles.healthBtnText}>
+                {healthState === 'saved'
+                  ? '건강 앱에 저장됨 ✓'
+                  : healthState === 'error'
+                    ? '다시 시도'
+                    : 'Apple 건강에 저장'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={styles.homeBtn} onPress={goHome} activeOpacity={0.8}>
           <Text style={styles.homeBtnText}>홈으로</Text>
@@ -206,6 +251,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.white,
   },
+  healthBtn: {
+    backgroundColor: Colors.navy,
+    borderWidth: 1,
+    borderColor: Colors.gray400,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing[3],
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  healthBtnDone: { borderColor: Colors.statusGreen },
+  healthBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
   homeBtn: {
     backgroundColor: Colors.amber,
     borderRadius: Radius.md,
