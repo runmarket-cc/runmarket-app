@@ -155,24 +155,30 @@ export default function RunnerResultScreen() {
         </View>
 
         {isHealthKitAvailable() && (
-          <TouchableOpacity
-            style={[styles.healthBtn, healthState === 'saved' && styles.healthBtnDone]}
-            onPress={saveToHealth}
-            activeOpacity={0.8}
-            disabled={healthState === 'saving' || healthState === 'saved'}
-          >
-            {healthState === 'saving' ? (
-              <ActivityIndicator color={Colors.white} />
-            ) : (
-              <Text style={styles.healthBtnText}>
-                {healthState === 'saved'
-                  ? '건강 앱에 저장됨 ✓'
-                  : healthState === 'error'
-                    ? '다시 시도'
-                    : 'Apple 건강에 저장'}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.healthSection}>
+            <Text style={styles.healthSectionTitle}>🍎 Apple 건강 연동</Text>
+            <TouchableOpacity
+              style={[styles.healthBtn, healthState === 'saved' && styles.healthBtnDone]}
+              onPress={saveToHealth}
+              activeOpacity={0.8}
+              disabled={healthState === 'saving' || healthState === 'saved'}
+            >
+              {healthState === 'saving' ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <Text style={styles.healthBtnText}>
+                  {healthState === 'saved'
+                    ? '건강 앱에 저장됨 ✓'
+                    : healthState === 'error'
+                      ? '다시 시도'
+                      : 'Apple 건강에 저장'}
+                </Text>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.healthHint}>
+              거리·시간·소모 칼로리·러닝 경로가 Apple 건강(HealthKit) 앱의 '달리기' 운동으로 저장됩니다.
+            </Text>
+          </View>
         )}
 
         <TouchableOpacity style={styles.homeBtn} onPress={goHome} activeOpacity={0.8}>
@@ -251,6 +257,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.white,
   },
+  healthSection: { gap: Spacing[2] },
+  healthSectionTitle: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.white,
+  },
   healthBtn: {
     backgroundColor: Colors.navy,
     borderWidth: 1,
@@ -263,6 +275,11 @@ const styles = StyleSheet.create({
   },
   healthBtnDone: { borderColor: Colors.statusGreen },
   healthBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
+  healthHint: {
+    fontSize: FontSize.xs,
+    color: Colors.gray400,
+    lineHeight: 16,
+  },
   homeBtn: {
     backgroundColor: Colors.amber,
     borderRadius: Radius.md,
