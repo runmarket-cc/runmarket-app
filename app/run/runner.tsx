@@ -112,11 +112,11 @@ export default function RunnerSetupScreen() {
           style={styles.startBtn}
         />
 
-        {/* HealthKit 연동 고지 — 러닝 완료 후 Apple 건강 앱에 저장 가능함을 미리 안내한다. */}
+        {/* HealthKit 연동 고지 — 러닝 완료 후 Apple 피트니스 앱에 저장 가능함을 미리 안내한다. */}
         {Platform.OS === 'ios' && (
           <View style={styles.healthNote}>
             <Text style={styles.healthNoteText}>
-              🍎 러닝을 완료하면 거리·시간·소모 칼로리·경로를 Apple 건강(HealthKit) 앱의
+              🍎 러닝을 완료하면 거리·시간·소모 칼로리·경로를 Apple 피트니스 앱의
               '달리기' 운동으로 저장할 수 있습니다.
             </Text>
           </View>

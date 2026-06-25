@@ -92,7 +92,7 @@ export default function RunnerResultScreen() {
       console.warn('[RunnerResult] 건강 앱 저장 실패:', e);
       setHealthState('error');
       Alert.alert(
-        '건강 앱 저장 실패',
+        '피트니스 앱 저장 실패',
         '권한을 허용했는지 확인해 주세요. 설정 > 개인정보 보호 및 보안 > 건강에서 권한을 켤 수 있습니다.',
       );
     }
@@ -156,7 +156,7 @@ export default function RunnerResultScreen() {
 
         {isHealthKitAvailable() && (
           <View style={styles.healthSection}>
-            <Text style={styles.healthSectionTitle}>🍎 Apple 건강 연동</Text>
+            <Text style={styles.healthSectionTitle}>🍎 Apple 피트니스 연동</Text>
             <TouchableOpacity
               style={[styles.healthBtn, healthState === 'saved' && styles.healthBtnDone]}
               onPress={saveToHealth}
@@ -168,15 +168,15 @@ export default function RunnerResultScreen() {
               ) : (
                 <Text style={styles.healthBtnText}>
                   {healthState === 'saved'
-                    ? '건강 앱에 저장됨 ✓'
+                    ? '피트니스 앱에 저장됨 ✓'
                     : healthState === 'error'
                       ? '다시 시도'
-                      : 'Apple 건강에 저장'}
+                      : 'Apple 피트니스에 저장'}
                 </Text>
               )}
             </TouchableOpacity>
             <Text style={styles.healthHint}>
-              거리·시간·소모 칼로리·러닝 경로가 Apple 건강(HealthKit) 앱의 '달리기' 운동으로 저장됩니다.
+              거리·시간·소모 칼로리·러닝 경로가 Apple 피트니스 앱의 '달리기' 운동으로 저장됩니다.
             </Text>
           </View>
         )}
