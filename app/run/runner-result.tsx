@@ -156,7 +156,7 @@ export default function RunnerResultScreen() {
 
         {isHealthKitAvailable() && (
           <View style={styles.healthSection}>
-            <Text style={styles.healthSectionTitle}>🍎 Apple 피트니스 연동</Text>
+            <Text style={styles.healthSectionTitle}>Apple 피트니스 연동</Text>
             <TouchableOpacity
               style={[styles.healthBtn, healthState === 'saved' && styles.healthBtnDone]}
               onPress={saveToHealth}
