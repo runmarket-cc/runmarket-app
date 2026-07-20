@@ -66,6 +66,13 @@ export interface RunUploadResponse {
   runId: string;
 }
 
+// ─── Push Notifications (기기 푸시 토큰 등록) ─────────────────────────────────
+
+export interface DeviceRegisterPayload {
+  expoPushToken: string;
+  platform: 'ios' | 'android';
+}
+
 // ─── Screen Content (백엔드에서 불러오는 화면 문구) ─────────────────────────────
 
 export interface InfoCardContent {

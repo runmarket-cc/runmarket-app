@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
 import { Stack, router } from 'expo-router';
-import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Sentry from '@sentry/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../src/store/authStore';
+import { usePushNotifications } from '../src/hooks/usePushNotifications';
 import BrandSplash from '../src/components/BrandSplash';
 import { RunMenuOverlay } from '../src/components/RunMenuOverlay';
 import { syncPendingRuns } from '../src/services/runSync';
@@ -29,11 +28,10 @@ function RootLayout() {
   const { loadAuth, isLoggedIn, initialized } = useAuthStore();
   const [splashDone, setSplashDone] = useState(false);
 
+  usePushNotifications();
+
   useEffect(() => {
     loadAuth();
-    if (Platform.OS === 'android') {
-      Notifications.requestPermissionsAsync();
-    }
   }, []);
 
   useEffect(() => {
