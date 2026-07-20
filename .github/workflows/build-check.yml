@@ -1,0 +1,100 @@
+name: Build Check
+
+# PR에서 iOS/Android 네이티브 빌드가 깨지지 않는지 확인한다.
+# EAS(Expo Application Services)를 쓰지 않으므로 EXPO_TOKEN 등의 시크릿이 필요 없다.
+# `expo prebuild`로 android/ios 네이티브 프로젝트를 로컬에서 생성한 뒤,
+# Gradle(Android)과 xcodebuild(iOS)로 직접 컴파일만 확인한다(서명·배포 없음).
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: build-check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  android:
+    name: Android build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild Android project
+        run: npx expo prebuild --platform android --no-install
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+  ios:
+    name: iOS build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild iOS project
+        run: npx expo prebuild --platform ios --no-install
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache CocoaPods downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: ${{ runner.os }}-pods-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install pods
+        working-directory: ios
+        run: pod install
+
+      - name: Build for iOS Simulator (no code signing)
+        working-directory: ios
+        run: |
+          workspace=$(ls -d ./*.xcworkspace | head -n1)
+          scheme=$(xcodebuild -list -workspace "$workspace" -json \
+            | jq -r '[.workspace.schemes[] | select(test("Widget|Extension") | not)] | first')
+          echo "Building scheme: $scheme"
+          xcodebuild build \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
