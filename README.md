@@ -52,6 +52,21 @@ RunMarket 생태계는 모바일 앱, 백엔드 API, 웹 프론트엔드, 그리
 │  - Secrets      : JWT Secret, Admin Auth, DB Credentials                │
 │  - Performance  : `helm/runmarket-loadtest` (부하 테스트)               │
 └─────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────┐
+│   runmarket-app          │
+│                          │
+│  Sentry SDK              │
+│  - Crash                 │
+│  - Error                 │
+│  - Performance           │
+└────────────┬─────────────┘
+             │ Error / Event
+             ▼
+┌──────────────────────────┐
+│         Sentry           │
+│   Mobile Monitoring      │
+└──────────────────────────┘
 ```
 
 ---
