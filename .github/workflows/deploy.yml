@@ -1,0 +1,77 @@
+name: EAS Build & Deploy
+
+# GitHub Actions 탭에서 버튼 클릭(수동 trigger) 시
+# Expo EAS Build를 사용하여 iOS/Android 앱을 빌드하고 스토어로 자동 배포(Submit)합니다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: '빌드 및 배포 대상 플랫폼 (all, ios, android)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ios
+          - android
+      profile:
+        description: 'EAS 빌드 프로필 (eas.json의 production, preview 등)'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - preview
+          - development
+      auto_submit:
+        description: '빌드 완료 후 스토어(App Store / Google Play)로 자동 배포(Submit) 진행'
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: eas-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy (${{ inputs.platform }} - ${{ inputs.profile }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Run EAS Build & Auto-Submit
+        run: |
+          SUBMIT_OPT=""
+          if [ "${{ inputs.auto_submit }}" = "true" ]; then
+            SUBMIT_OPT="--auto-submit"
+          fi
+          
+          eas build \
+            --platform ${{ inputs.platform }} \
+            --profile ${{ inputs.profile }} \
+            --non-interactive \
+            $SUBMIT_OPT
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
