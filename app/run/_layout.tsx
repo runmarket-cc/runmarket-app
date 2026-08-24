@@ -3,7 +3,7 @@ import { Stack, router } from 'expo-router';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Colors, FontSize } from '../../src/constants/theme';
 
-export function HeaderBackButton({ onPress, label = '뒤로' }: { onPress?: () => void; label?: string }) {
+export function HeaderBackButton({ onPress }: { onPress?: () => void }) {
   const handlePress = () => {
     if (onPress) {
       onPress();
@@ -18,11 +18,11 @@ export function HeaderBackButton({ onPress, label = '뒤로' }: { onPress?: () =
     <TouchableOpacity
       onPress={handlePress}
       style={styles.backBtn}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       activeOpacity={0.7}
+      accessibilityLabel="뒤로 가기"
     >
       <Text style={styles.backArrow}>‹</Text>
-      <Text style={styles.backText}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -79,21 +79,15 @@ export default function RunLayout() {
 
 const styles = StyleSheet.create({
   backBtn: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingRight: 8,
+    paddingRight: 12,
   },
   backArrow: {
     color: Colors.amber,
-    fontSize: 26,
-    lineHeight: 28,
-    fontWeight: '400',
-    marginRight: 2,
-  },
-  backText: {
-    color: Colors.amber,
-    fontSize: FontSize.base,
-    fontWeight: '600',
+    fontSize: 32,
+    lineHeight: 34,
+    fontWeight: '300',
   },
 });
 
