@@ -5,7 +5,7 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { useRunnerSocket } from '../../src/hooks/useRunnerSocket';
@@ -14,6 +14,7 @@ import { RunnerListPanel, getRunnerColor } from '../../src/components/RunnerList
 import { RUN_LOCATION_TASK, setLocationHandler } from '../../src/services/backgroundLocation';
 import { createRun, appendPoint, finishRun } from '../../src/services/runRecordStore';
 import { syncPendingRuns } from '../../src/services/runSync';
+import { HeaderBackButton } from './_layout';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -56,6 +57,7 @@ export default function RunnerActiveScreen() {
   const { groupId, runnerId, socketToken, color } = useLocalSearchParams<{
     groupId: string; runnerId: string; socketToken: string; color: string;
   }>();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
   const mapRef = useRef<MapView>(null);
@@ -427,6 +429,25 @@ export default function RunnerActiveScreen() {
       },
     ]);
   }, [stopLocationTracking]);
+
+  const handleHeaderBack = useCallback(() => {
+    if (runStateRef.current === 'idle') {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)');
+      }
+    } else {
+      handleStop();
+    }
+  }, [handleStop]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerBackVisible: false,
+      headerLeft: () => <HeaderBackButton onPress={handleHeaderBack} />,
+    });
+  }, [navigation, handleHeaderBack]);
 
   return (
     <View style={styles.container}>
