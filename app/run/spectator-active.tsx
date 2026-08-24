@@ -4,17 +4,19 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
 import { useSpectatorSocket } from '../../src/hooks/useSpectatorSocket';
 import { useSpectatorLockScreen } from '../../src/hooks/useLockScreenActivity';
 import { RunnerListPanel, getRunnerColor } from '../../src/components/RunnerListPanel';
+import { HeaderBackButton } from './_layout';
 
 export default function SpectatorActiveScreen() {
   const { groupId, socketToken } = useLocalSearchParams<{
     groupId: string; socketToken: string;
   }>();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const centeredRef = useRef(false);
@@ -65,12 +67,19 @@ export default function SpectatorActiveScreen() {
     updateLockScreen({ runnerCount: runnerList.length, isConnected: connected });
   }, [runnerList.length, connected]);
 
-  const handleStop = () => {
+  const handleStop = useCallback(() => {
     Alert.alert('관전 종료', '관전을 종료하시겠습니까?', [
       { text: '계속 보기', style: 'cancel' },
       { text: '종료', style: 'destructive', onPress: () => router.replace('/(tabs)') },
     ]);
-  };
+  }, []);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerBackVisible: false,
+      headerLeft: () => <HeaderBackButton onPress={handleStop} />,
+    });
+  }, [navigation, handleStop]);
 
   return (
     <View style={styles.container}>
