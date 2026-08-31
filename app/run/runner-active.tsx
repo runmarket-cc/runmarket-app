@@ -250,23 +250,44 @@ export default function RunnerActiveScreen() {
   const startTracking = useCallback(async () => {
     if (runStateRef.current !== 'idle') return;
 
-    const fg = await Location.requestForegroundPermissionsAsync();
-    if (fg.status !== 'granted') {
-      // canAskAgain=false면 이미 영구 거부되어 시스템 다이얼로그가 더는 안 뜬다.
-      // 이 경우 앱 설정으로 직접 보내야 사용자가 권한을 복구할 수 있다.
-      Alert.alert(
-        '위치 권한 필요',
-        fg.canAskAgain
-          ? '위치 권한을 허용해야 달리기를 시작할 수 있습니다.'
-          : '위치 권한이 거부되어 있습니다. 설정 > 런마켓에서 위치 접근을 "앱 사용 중"으로 허용해주세요.',
-        fg.canAskAgain
-          ? [{ text: '확인' }]
-          : [
-              { text: '취소', style: 'cancel' },
-              { text: '설정 열기', onPress: () => Linking.openSettings() },
-            ],
-      );
-      return;
+    // 포그라운드 위치 권한 확인
+    let fg = await Location.getForegroundPermissionsAsync().catch(() => null);
+    if (fg?.status !== 'granted') {
+      // 명시적 사전 고지 (Google Play Prominent Disclosure 요건)
+      const userAgreed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          '위치 정보 접근 권한 안내',
+          '런마켓은 러닝 중 실시간 이동 경로 기록, 거리 및 페이스 측정, 그룹원과의 실시간 위치 공유 기능을 제공하기 위해 위치 데이터를 수집하고 사용합니다.',
+          [
+            { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+            { text: '동의 및 계속', onPress: () => resolve(true) },
+          ],
+          { cancelable: false },
+        );
+      });
+
+      if (!userAgreed) {
+        return;
+      }
+
+      fg = await Location.requestForegroundPermissionsAsync();
+      if (fg.status !== 'granted') {
+        // canAskAgain=false면 이미 영구 거부되어 시스템 다이얼로그가 더는 안 뜬다.
+        // 이 경우 앱 설정으로 직접 보내야 사용자가 권한을 복구할 수 있다.
+        Alert.alert(
+          '위치 권한 필요',
+          fg.canAskAgain
+            ? '위치 권한을 허용해야 달리기를 시작할 수 있습니다.'
+            : '위치 권한이 거부되어 있습니다. 설정 > 런마켓에서 위치 접근을 "앱 사용 중"으로 허용해주세요.',
+          fg.canAskAgain
+            ? [{ text: '확인' }]
+            : [
+                { text: '취소', style: 'cancel' },
+                { text: '설정 열기', onPress: () => Linking.openSettings() },
+              ],
+        );
+        return;
+      }
     }
 
     // 로컬 기록 시작: 이후 들어오는 궤적이 이 row에 적재된다.
@@ -288,18 +309,22 @@ export default function RunnerActiveScreen() {
     // (Android 11+에서는 시스템 설정 화면이 열림)
     let bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
     if (bg?.status !== 'granted') {
-      // 권한 요청 전에 "항상 허용"이 왜 필요한지 안내 (확인을 눌러야 진행)
-      await new Promise<void>((resolve) => {
+      // 권한 요청 전 명시적 사전 고지 (Google Play Prominent Disclosure 필수 문구 포함)
+      const userAgreed = await new Promise<boolean>((resolve) => {
         Alert.alert(
-          '위치 권한을 "항상 허용"으로 설정해주세요',
-          '러닝 중 홀드 버튼을 누르거나 화면이 꺼지면 앱이 백그라운드 상태가 됩니다.\n\n'
-          + '위치 권한이 "앱 사용 중에만 허용"이면 이때 위치 전송이 중단되어, 함께 달리는 러너와 관전자가 내 위치를 볼 수 없습니다.\n\n'
-          + '화면이 꺼져도 실시간 위치 공유를 유지하려면 다음 화면에서 반드시 "항상 허용"을 선택해주세요.',
-          [{ text: '확인', onPress: () => resolve() }],
+          '백그라운드 위치 권한 안내 (항상 허용)',
+          '런마켓은 앱이 닫혀 있거나 사용 중이 아닐 때(화면이 꺼져 있거나 다른 앱 사용 중일 때)도 러닝 경로를 끊김 없이 기록하고 그룹원에게 실시간 위치를 공유하기 위해 위치 데이터를 수집합니다.\n\n'
+          + '화면이 꺼져도 안정적인 실시간 위치 공유 및 기록 유지를 위해 다음 화면에서 "항상 허용"을 선택해주세요.',
+          [
+            { text: '나중에 (포그라운드만 사용)', style: 'cancel', onPress: () => resolve(false) },
+            { text: '설정하기', onPress: () => resolve(true) },
+          ],
           { cancelable: false },
         );
       });
-      bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
+      if (userAgreed) {
+        bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
+      }
     }
 
     // 시간/거리 누적 초기화 후 running 진입 (위치 콜백이 처리되도록 추적 시작 전에 설정)
