@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { registerDevice } from '../api/devices';
@@ -23,7 +23,7 @@ async function ensureAndroidChannel() {
 }
 
 /**
- * 원격 푸시 수신 준비: 권한 요청 → Expo Push Token 발급 → 백엔드 등록.
+ * 원격 푸시 수신 준비: 사전 고지 → 권한 요청 → Expo Push Token 발급 → 백엔드 등록.
  * 로그인 상태에서 호출해야 토큰이 계정과 연결된다.
  * 실패해도 앱 사용에는 지장 없으므로(마켓/공지 알림 미수신 정도) 에러를 던지지 않는다.
  */
@@ -33,12 +33,29 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
       await ensureAndroidChannel();
     }
 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus, canAskAgain } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+
+    if (existingStatus !== 'granted' && (canAskAgain ?? true)) {
+      // 명시적 사전 안내 (Google Play Prominent Disclosure 요건)
+      const userAgreed = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          '알림 권한 안내',
+          '런마켓은 러닝 그룹 초대, 응원 메시지 및 주요 마켓 소식 알림을 전달하기 위해 알림 권한을 요청합니다.',
+          [
+            { text: '나중에', style: 'cancel', onPress: () => resolve(false) },
+            { text: '허용', onPress: () => resolve(true) },
+          ],
+          { cancelable: false },
+        );
+      });
+
+      if (userAgreed) {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
     }
+
     if (finalStatus !== 'granted') return;
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
