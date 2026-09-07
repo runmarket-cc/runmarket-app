@@ -2,6 +2,7 @@
 
 # Firebase / Google Services
 google-services*.json
+*firebase-adminsdk*.json
 
 # dependencies
 node_modules/

@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Linking,
+  View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Linking, AppState, type AppStateStatus,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
+import * as SecureStore from 'expo-secure-store';
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontSize, Spacing, Radius } from '../../src/constants/theme';
@@ -15,6 +16,7 @@ import { RUN_LOCATION_TASK, setLocationHandler } from '../../src/services/backgr
 import { createRun, appendPoint, finishRun } from '../../src/services/runRecordStore';
 import { syncPendingRuns } from '../../src/services/runSync';
 import { HeaderBackButton } from './_layout';
+import { LocationDisclosureModal, DisclosureType } from '../../src/components/LocationDisclosureModal';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -77,6 +79,10 @@ export default function RunnerActiveScreen() {
   // ref는 위치 콜백 클로저에서 최신 상태를 읽기 위함, state는 UI 갱신용.
   const runStateRef = useRef<'idle' | 'running' | 'paused'>('idle');
   const [runState, setRunState] = useState<'idle' | 'running' | 'paused'>('idle');
+  // 앱 포그라운드/백그라운드 상태 추적 (백그라운드 시 UI 리렌더링 차단용)
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // 전체 누적 궤적(백그라운드에서 UI 리렌더링 없이 O(1)로 점을 축적하는 버퍼)
+  const fullPathRef = useRef<Coord[]>([]);
   // 경과 시간 누적(ms). 일시정지 구간은 제외된다.
   const accumulatedMsRef = useRef<number>(0);
   // 현재 running 구간이 시작된 시각(ms). running일 때만 유효.
@@ -111,9 +117,26 @@ export default function RunnerActiveScreen() {
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
   }, []);
 
-  // ── 진입 시 안내: 시작 버튼을 눌러야 위치가 표시됨 ──
-  useEffect(() => {
-    Alert.alert('안내', '시작 버튼을 눌러야 현재 위치가 표시됩니다.');
+  const [disclosureType, setDisclosureType] = useState<DisclosureType | null>(null);
+  const disclosureResolverRef = useRef<((agreed: boolean) => void) | null>(null);
+
+  const requestDisclosure = useCallback((type: DisclosureType) => {
+    return new Promise<boolean>((resolve) => {
+      disclosureResolverRef.current = resolve;
+      setDisclosureType(type);
+    });
+  }, []);
+
+  const handleDisclosureAccept = useCallback(() => {
+    setDisclosureType(null);
+    disclosureResolverRef.current?.(true);
+    disclosureResolverRef.current = null;
+  }, []);
+
+  const handleDisclosureDecline = useCallback(() => {
+    setDisclosureType(null);
+    disclosureResolverRef.current?.(false);
+    disclosureResolverRef.current = null;
   }, []);
 
   // ── 잠금 화면 위젯 (러닝 시작 후에만 활성화) ──
@@ -134,10 +157,34 @@ export default function RunnerActiveScreen() {
     (r) => r.runnerId && typeof r.lat === 'number' && typeof r.lng === 'number',
   );
 
-  // ── 경과 시간 타이머 (running 중에만 진행) ──
+  // ── 백그라운드 ↔ 포그라운드 전환 시 UI 동기화 ──
+  // 백그라운드에서는 React 리렌더링(setPath, setDistance 등)을 건너뛰어 메모리 누수와
+  // Android Low Memory Killer(LMK) 사살을 방지하고, 포그라운드로 복귀할 때 한 번에 반영한다.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        if (fullPathRef.current.length > 0) {
+          setPath([...fullPathRef.current]);
+        }
+        if (lastCoordRef.current) {
+          setCurrentCoord(lastCoordRef.current);
+        }
+        setDistance(distanceRef.current);
+        setPaceSecPerKm(paceSecPerKmRef.current);
+        setElapsed(Math.floor(currentElapsedMs() / 1000));
+      }
+      appStateRef.current = nextAppState;
+    });
+    return () => subscription.remove();
+  }, []);
+
+  // ── 경과 시간 타이머 (running 중에만 진행, 활성 상태에서만 UI 갱신) ──
   useEffect(() => {
     const id = setInterval(() => {
-      if (runStateRef.current === 'running') {
+      if (runStateRef.current === 'running' && appStateRef.current === 'active') {
         setElapsed(Math.floor(currentElapsedMs() / 1000));
       }
     }, 1000);
@@ -156,7 +203,10 @@ export default function RunnerActiveScreen() {
     };
 
     const now = Date.now();
-    setCurrentCoord(coord);
+    const isAppActive = appStateRef.current === 'active';
+    if (isAppActive) {
+      setCurrentCoord(coord);
+    }
 
     // ── 거리·페이스 누적 (GPS 잡음/정지 구간은 제외) ──
     // 직전 채택 지점과의 이동량·속도로 정상 이동인지 판정한다.
@@ -175,28 +225,33 @@ export default function RunnerActiveScreen() {
         || speedMps > MAX_SPEED_MPS) {
         moved = false; // 비정상 페이스 = 멈춤(또는 GPS 튐) → 거리·페이스에 반영하지 않음
       } else {
-        setDistance((d) => {
-          const newDist = d + delta;
-          distanceRef.current = newDist;
-          const timeSec = currentElapsedMs() / 1000;
-          const pace = newDist > 0 ? timeSec / newDist : 0;
+        const newDist = distanceRef.current + delta;
+        distanceRef.current = newDist;
+        const timeSec = currentElapsedMs() / 1000;
+        const pace = newDist > 0 ? timeSec / newDist : 0;
+        paceSecPerKmRef.current = pace;
+        if (isAppActive) {
+          setDistance(newDist);
           setPaceSecPerKm(pace);
-          paceSecPerKmRef.current = pace;
-          return newDist;
-        });
+        }
       }
     }
     // 채택한 점에서만 기준점·궤적을 갱신 (정지 중 지그재그 방지)
     if (moved) {
       lastCoordRef.current = coord;
       lastPointTsRef.current = now;
-      setPath((prev) => [...prev, coord]);
+      fullPathRef.current.push(coord);
+      if (isAppActive) {
+        setPath((prev) => [...prev, coord]);
+      }
     }
 
     // 첫 GPS 수신 시에만 내 위치로 이동 (이후 자동 추적 없음)
     if (!centeredRef.current) {
       centeredRef.current = true;
-      mapRef.current?.animateCamera({ center: coord, zoom: 14 }, { duration: 500 });
+      if (isAppActive) {
+        mapRef.current?.animateCamera({ center: coord, zoom: 14 }, { duration: 500 });
+      }
     }
 
     // 3초마다 소켓 전송 & 잠금 화면 업데이트 & 로컬 기록 적재
@@ -253,19 +308,8 @@ export default function RunnerActiveScreen() {
     // 포그라운드 위치 권한 확인
     let fg = await Location.getForegroundPermissionsAsync().catch(() => null);
     if (fg?.status !== 'granted') {
-      // 명시적 사전 고지 (Google Play Prominent Disclosure 요건)
-      const userAgreed = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          '위치 정보 접근 권한 안내',
-          '런마켓은 러닝 중 실시간 이동 경로 기록, 거리 및 페이스 측정, 그룹원과의 실시간 위치 공유 기능을 제공하기 위해 위치 데이터를 수집하고 사용합니다.',
-          [
-            { text: '취소', style: 'cancel', onPress: () => resolve(false) },
-            { text: '동의 및 계속', onPress: () => resolve(true) },
-          ],
-          { cancelable: false },
-        );
-      });
-
+      // 명시적 사전 고지 (Google Play Prominent Disclosure 요건 전용 모달)
+      const userAgreed = await requestDisclosure('foreground');
       if (!userAgreed) {
         return;
       }
@@ -309,19 +353,8 @@ export default function RunnerActiveScreen() {
     // (Android 11+에서는 시스템 설정 화면이 열림)
     let bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
     if (bg?.status !== 'granted') {
-      // 권한 요청 전 명시적 사전 고지 (Google Play Prominent Disclosure 필수 문구 포함)
-      const userAgreed = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          '백그라운드 위치 권한 안내 (항상 허용)',
-          '런마켓은 앱이 닫혀 있거나 사용 중이 아닐 때(화면이 꺼져 있거나 다른 앱 사용 중일 때)도 러닝 경로를 끊김 없이 기록하고 그룹원에게 실시간 위치를 공유하기 위해 위치 데이터를 수집합니다.\n\n'
-          + '화면이 꺼져도 안정적인 실시간 위치 공유 및 기록 유지를 위해 다음 화면에서 "항상 허용"을 선택해주세요.',
-          [
-            { text: '나중에 (포그라운드만 사용)', style: 'cancel', onPress: () => resolve(false) },
-            { text: '설정하기', onPress: () => resolve(true) },
-          ],
-          { cancelable: false },
-        );
-      });
+      // 권한 요청 전 명시적 사전 고지 (Google Play Prominent Disclosure 필수 문구 포함 모달)
+      const userAgreed = await requestDisclosure('background');
       if (userAgreed) {
         bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
       }
@@ -334,16 +367,51 @@ export default function RunnerActiveScreen() {
     lastPointTsRef.current = 0;
     paceSecPerKmRef.current = 0;
     lastSendTimeRef.current = 0;
+    distanceRef.current = 0;
+    fullPathRef.current = [];
     runStateRef.current = 'running';
     setRunState('running');
     setElapsed(0);
+    setDistance(0);
+    setPaceSecPerKm(0);
+    setPath([]);
+
+    // Android 배터리 최적화 제한 없음 권장 안내 (10km 이상 장시간 백그라운드 추적 보호)
+    if (Platform.OS === 'android') {
+      SecureStore.getItemAsync('runmarket_battery_opt_guided')
+        .then((guided) => {
+          if (!guided) {
+            Alert.alert(
+              '배터리 사용량 "제한 없음" 권장',
+              '장시간(10km 이상) 러닝 시 화면이 꺼져도 위치 기록이 중단되지 않도록, 런마켓 앱의 배터리 설정을 "제한 없음(최적화 제외)"으로 설정해주세요.',
+              [
+                {
+                  text: '나중에',
+                  style: 'cancel',
+                  onPress: () => {
+                    SecureStore.setItemAsync('runmarket_battery_opt_guided', '1').catch(() => {});
+                  },
+                },
+                {
+                  text: '설정 열기',
+                  onPress: () => {
+                    SecureStore.setItemAsync('runmarket_battery_opt_guided', '1').catch(() => {});
+                    Linking.openSettings();
+                  },
+                },
+              ],
+            );
+          }
+        })
+        .catch(() => {});
+    }
 
     if (bg?.status === 'granted') {
       setLocationHandler((locations) => locations.forEach(handleLocation));
       await Location.startLocationUpdatesAsync(RUN_LOCATION_TASK, {
         accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 1000,
-        distanceInterval: 0,
+        timeInterval: 3000,
+        distanceInterval: 3,
         // iOS: 화면이 꺼지거나 앱이 백그라운드로 가도 업데이트 유지
         activityType: Location.ActivityType.Fitness,
         pausesUpdatesAutomatically: false,
@@ -353,7 +421,7 @@ export default function RunnerActiveScreen() {
           notificationTitle: '런마켓 러닝 중',
           notificationBody: '실시간으로 위치를 공유하고 있습니다.',
           notificationColor: '#FF8A00',
-          killServiceOnDestroy: true,
+          killServiceOnDestroy: false,
         },
       });
       backgroundStartedRef.current = true;
@@ -371,8 +439,8 @@ export default function RunnerActiveScreen() {
       subRef.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000,
-          distanceInterval: 0,
+          timeInterval: 3000,
+          distanceInterval: 3,
         },
         handleLocation,
       );
@@ -482,7 +550,7 @@ export default function RunnerActiveScreen() {
           ref={mapRef}
           style={styles.map}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-          showsUserLocation
+          showsUserLocation={runState !== 'idle'}
           followsUserLocation={false}
           initialRegion={
             currentCoord
@@ -594,6 +662,14 @@ export default function RunnerActiveScreen() {
           </View>
         )}
       </View>
+
+      {/* 위치 권한 명시적 공개 모달 (Google Play Prominent Disclosure 요건 충족) */}
+      <LocationDisclosureModal
+        visible={disclosureType !== null}
+        type={disclosureType ?? 'foreground'}
+        onAccept={handleDisclosureAccept}
+        onDecline={handleDisclosureDecline}
+      />
     </View>
   );
 }

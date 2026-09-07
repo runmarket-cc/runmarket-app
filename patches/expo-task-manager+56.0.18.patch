@@ -1,12 +1,90 @@
 diff --git a/node_modules/expo-task-manager/android/src/main/java/expo/modules/taskManager/TaskManagerUtils.java b/node_modules/expo-task-manager/android/src/main/java/expo/modules/taskManager/TaskManagerUtils.java
-index 4dd0e94..be6f826 100644
+index 4dd0e94..779a1d7 100644
 --- a/node_modules/expo-task-manager/android/src/main/java/expo/modules/taskManager/TaskManagerUtils.java
 +++ b/node_modules/expo-task-manager/android/src/main/java/expo/modules/taskManager/TaskManagerUtils.java
-@@ -211,7 +211,12 @@ public class TaskManagerUtils implements TaskManagerUtilsInterface {
+@@ -142,9 +142,21 @@ public class TaskManagerUtils implements TaskManagerUtilsInterface {
+       try {
+         JobInfo mergedJobInfo = createJobInfoByAddingData(newestJob, data);
+         jobScheduler.cancel(newestJob.getId());
+-        jobScheduler.schedule(mergedJobInfo);
++        int result = jobScheduler.schedule(mergedJobInfo);
++        if (result == JobScheduler.RESULT_FAILURE && Build.VERSION.SDK_INT >= 31) {
++          JobInfo fallbackJob = createJobInfoByAddingData(newestJob, data, true);
++          jobScheduler.schedule(fallbackJob);
++        }
+       } catch (IllegalStateException e) {
+         Log.e(this.getClass().getName(), "Unable to merge job: " + e.getMessage());
++        if (Build.VERSION.SDK_INT >= 31) {
++          try {
++            JobInfo fallbackJob = createJobInfoByAddingData(newestJob, data, true);
++            jobScheduler.schedule(fallbackJob);
++          } catch (Exception ex) {
++            Log.e(this.getClass().getName(), "Unable to schedule fallback merged job: " + ex.getMessage());
++          }
++        }
+       }
+       return;
+     }
+@@ -152,13 +164,29 @@ public class TaskManagerUtils implements TaskManagerUtilsInterface {
+     // Under limit: schedule as new job. Don't touch existing jobs.
+     try {
+       JobInfo jobInfo = createJobInfo(context, task, newJobId, data);
+-      jobScheduler.schedule(jobInfo);
++      int result = jobScheduler.schedule(jobInfo);
++      if (result == JobScheduler.RESULT_FAILURE && Build.VERSION.SDK_INT >= 31) {
++        JobInfo fallbackJob = createJobInfo(newJobId, new ComponentName(context, TaskJobService.class), createExtrasForTask(task, data), true);
++        jobScheduler.schedule(fallbackJob);
++      }
+     } catch (IllegalStateException e) {
+       Log.e(this.getClass().getName(), "Unable to schedule job: " + e.getMessage());
++      if (Build.VERSION.SDK_INT >= 31) {
++        try {
++          JobInfo fallbackJob = createJobInfo(newJobId, new ComponentName(context, TaskJobService.class), createExtrasForTask(task, data), true);
++          jobScheduler.schedule(fallbackJob);
++        } catch (Exception ex) {
++          Log.e(this.getClass().getName(), "Unable to schedule fallback job: " + ex.getMessage());
++        }
++      }
+     }
+   }
+ 
+   private JobInfo createJobInfoByAddingData(JobInfo jobInfo, List<PersistableBundle> data) {
++    return createJobInfoByAddingData(jobInfo, data, false);
++  }
++
++  private JobInfo createJobInfoByAddingData(JobInfo jobInfo, List<PersistableBundle> data, boolean forceNonExpedited) {
+     PersistableBundle mergedExtras = jobInfo.getExtras();
+     int dataSize = mergedExtras.getInt("dataSize", 0);
+ 
+@@ -169,7 +197,7 @@ public class TaskManagerUtils implements TaskManagerUtilsInterface {
+         mergedExtras.putPersistableBundle(String.valueOf(dataSize + i), data.get(i));
+       }
+     }
+-    return createJobInfo(jobInfo.getId(), jobInfo.getService(), mergedExtras);
++    return createJobInfo(jobInfo.getId(), jobInfo.getService(), mergedExtras, forceNonExpedited);
+   }
+ 
+   private PendingIntent createTaskIntent(Context context, String appScopeKey, String taskName, int flags) {
+@@ -200,6 +228,10 @@ public class TaskManagerUtils implements TaskManagerUtilsInterface {
+   }
+ 
+   private JobInfo createJobInfo(int jobId, ComponentName jobService, PersistableBundle extras) {
++    return createJobInfo(jobId, jobService, extras, false);
++  }
++
++  private JobInfo createJobInfo(int jobId, ComponentName jobService, PersistableBundle extras, boolean forceNonExpedited) {
+     JobInfo.Builder jobBuilder = new JobInfo.Builder(jobId, jobService)
+         .setExtras(extras)
+         .setPersisted(true)
+@@ -209,9 +241,14 @@ public class TaskManagerUtils implements TaskManagerUtilsInterface {
+       // For Android versions below 28 (Android 9 and below)
+       jobBuilder.setMinimumLatency(0)
            .setOverrideDeadline(DEFAULT_OVERRIDE_DEADLINE);
-     } else if (Build.VERSION.SDK_INT < 31) {
-       // For Android 9 (API 28) to Android 11 (API 30)
+-    } else if (Build.VERSION.SDK_INT < 31) {
+-      // For Android 9 (API 28) to Android 11 (API 30)
 -      jobBuilder.setImportantWhileForeground(true);
++    } else if (Build.VERSION.SDK_INT < 31 || forceNonExpedited) {
++      // For Android 9 (API 28) to Android 11 (API 30), or fallback when expedited quota is exhausted on Android 12+
 +      // setImportantWhileForeground() is only a modifier, not a constraint —
 +      // JobInfo.Builder.build() throws "no constraints" without a timing constraint.
 +      // Only a deadline (late constraint) is allowed here: a minimum latency
