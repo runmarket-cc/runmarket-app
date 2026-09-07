@@ -15,6 +15,7 @@ import { RUN_LOCATION_TASK, setLocationHandler } from '../../src/services/backgr
 import { createRun, appendPoint, finishRun } from '../../src/services/runRecordStore';
 import { syncPendingRuns } from '../../src/services/runSync';
 import { HeaderBackButton } from './_layout';
+import { LocationDisclosureModal, DisclosureType } from '../../src/components/LocationDisclosureModal';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -111,9 +112,27 @@ export default function RunnerActiveScreen() {
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
   }, []);
 
-  // ── 진입 시 안내: 시작 버튼을 눌러야 위치가 표시됨 ──
-  useEffect(() => {
-    Alert.alert('안내', '시작 버튼을 눌러야 현재 위치가 표시됩니다.');
+  // ── 구글 플레이 명시적 고지 모달 상태 관리 ──
+  const [disclosureType, setDisclosureType] = useState<DisclosureType | null>(null);
+  const disclosureResolverRef = useRef<((agreed: boolean) => void) | null>(null);
+
+  const requestDisclosure = useCallback((type: DisclosureType) => {
+    return new Promise<boolean>((resolve) => {
+      disclosureResolverRef.current = resolve;
+      setDisclosureType(type);
+    });
+  }, []);
+
+  const handleDisclosureAccept = useCallback(() => {
+    setDisclosureType(null);
+    disclosureResolverRef.current?.(true);
+    disclosureResolverRef.current = null;
+  }, []);
+
+  const handleDisclosureDecline = useCallback(() => {
+    setDisclosureType(null);
+    disclosureResolverRef.current?.(false);
+    disclosureResolverRef.current = null;
   }, []);
 
   // ── 잠금 화면 위젯 (러닝 시작 후에만 활성화) ──
@@ -253,19 +272,8 @@ export default function RunnerActiveScreen() {
     // 포그라운드 위치 권한 확인
     let fg = await Location.getForegroundPermissionsAsync().catch(() => null);
     if (fg?.status !== 'granted') {
-      // 명시적 사전 고지 (Google Play Prominent Disclosure 요건)
-      const userAgreed = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          '위치 정보 접근 권한 안내',
-          '런마켓은 러닝 중 실시간 이동 경로 기록, 거리 및 페이스 측정, 그룹원과의 실시간 위치 공유 기능을 제공하기 위해 위치 데이터를 수집하고 사용합니다.',
-          [
-            { text: '취소', style: 'cancel', onPress: () => resolve(false) },
-            { text: '동의 및 계속', onPress: () => resolve(true) },
-          ],
-          { cancelable: false },
-        );
-      });
-
+      // 명시적 사전 고지 (Google Play Prominent Disclosure 요건 전용 모달)
+      const userAgreed = await requestDisclosure('foreground');
       if (!userAgreed) {
         return;
       }
@@ -309,19 +317,8 @@ export default function RunnerActiveScreen() {
     // (Android 11+에서는 시스템 설정 화면이 열림)
     let bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
     if (bg?.status !== 'granted') {
-      // 권한 요청 전 명시적 사전 고지 (Google Play Prominent Disclosure 필수 문구 포함)
-      const userAgreed = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          '백그라운드 위치 권한 안내 (항상 허용)',
-          '런마켓은 앱이 닫혀 있거나 사용 중이 아닐 때(화면이 꺼져 있거나 다른 앱 사용 중일 때)도 러닝 경로를 끊김 없이 기록하고 그룹원에게 실시간 위치를 공유하기 위해 위치 데이터를 수집합니다.\n\n'
-          + '화면이 꺼져도 안정적인 실시간 위치 공유 및 기록 유지를 위해 다음 화면에서 "항상 허용"을 선택해주세요.',
-          [
-            { text: '나중에 (포그라운드만 사용)', style: 'cancel', onPress: () => resolve(false) },
-            { text: '설정하기', onPress: () => resolve(true) },
-          ],
-          { cancelable: false },
-        );
-      });
+      // 권한 요청 전 명시적 사전 고지 (Google Play Prominent Disclosure 필수 문구 포함 모달)
+      const userAgreed = await requestDisclosure('background');
       if (userAgreed) {
         bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
       }
@@ -377,7 +374,7 @@ export default function RunnerActiveScreen() {
         handleLocation,
       );
     }
-  }, [groupId, runnerId, color, handleLocation]);
+  }, [groupId, runnerId, color, handleLocation, requestDisclosure]);
 
   // ── 일시정지: 시간 누적을 멈추고 들어오는 위치를 무시 ──
   const pauseTracking = useCallback(() => {
@@ -482,7 +479,7 @@ export default function RunnerActiveScreen() {
           ref={mapRef}
           style={styles.map}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-          showsUserLocation
+          showsUserLocation={runState !== 'idle'}
           followsUserLocation={false}
           initialRegion={
             currentCoord
@@ -594,6 +591,14 @@ export default function RunnerActiveScreen() {
           </View>
         )}
       </View>
+
+      {/* 위치 권한 명시적 공개 모달 (Google Play Prominent Disclosure 요건 충족) */}
+      <LocationDisclosureModal
+        visible={disclosureType !== null}
+        type={disclosureType ?? 'foreground'}
+        onAccept={handleDisclosureAccept}
+        onDecline={handleDisclosureDecline}
+      />
     </View>
   );
 }
