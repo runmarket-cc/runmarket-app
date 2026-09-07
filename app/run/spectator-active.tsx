@@ -88,7 +88,6 @@ export default function SpectatorActiveScreen() {
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        showsUserLocation
         initialRegion={{
           latitude: 37.5665,
           longitude: 126.978,
