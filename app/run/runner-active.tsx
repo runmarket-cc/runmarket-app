@@ -17,6 +17,7 @@ import { createRun, appendPoint, finishRun } from '../../src/services/runRecordS
 import { syncPendingRuns } from '../../src/services/runSync';
 import { HeaderBackButton } from './_layout';
 import { LocationDisclosureModal, DisclosureType } from '../../src/components/LocationDisclosureModal';
+import { BatteryOptimizationGuideModal } from '../../src/components/BatteryOptimizationGuideModal';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -120,6 +121,11 @@ export default function RunnerActiveScreen() {
   // ── 구글 플레이 명시적 고지 모달 상태 관리 ──
   const [disclosureType, setDisclosureType] = useState<DisclosureType | null>(null);
   const disclosureResolverRef = useRef<((agreed: boolean) => void) | null>(null);
+
+  // ── Android 배터리 최적화 상세 가이드 모달 상태 관리 ──
+  const [showBatteryGuide, setShowBatteryGuide] = useState(false);
+  // ── Android 배터리 최적화 가이드 접기/펼치기 아코디언 상태 ──
+  const [batteryGuideExpanded, setBatteryGuideExpanded] = useState(false);
 
   const requestDisclosure = useCallback((type: DisclosureType) => {
     return new Promise<boolean>((resolve) => {
@@ -382,26 +388,8 @@ export default function RunnerActiveScreen() {
       SecureStore.getItemAsync('runmarket_battery_opt_guided')
         .then((guided) => {
           if (!guided) {
-            Alert.alert(
-              '배터리 사용량 "제한 없음" 권장',
-              '장시간(10km 이상) 러닝 시 화면이 꺼져도 위치 기록이 중단되지 않도록, 런마켓 앱의 배터리 설정을 "제한 없음(최적화 제외)"으로 설정해주세요.',
-              [
-                {
-                  text: '나중에',
-                  style: 'cancel',
-                  onPress: () => {
-                    SecureStore.setItemAsync('runmarket_battery_opt_guided', '1').catch(() => {});
-                  },
-                },
-                {
-                  text: '설정 열기',
-                  onPress: () => {
-                    SecureStore.setItemAsync('runmarket_battery_opt_guided', '1').catch(() => {});
-                    Linking.openSettings();
-                  },
-                },
-              ],
-            );
+            setShowBatteryGuide(true);
+            SecureStore.setItemAsync('runmarket_battery_opt_guided', '1').catch(() => {});
           }
         })
         .catch(() => {});
@@ -642,6 +630,66 @@ export default function RunnerActiveScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* Android 전용: 10km+ 장시간 러닝 배터리 최적화 안내 (접이식 아코디언) */}
+        {Platform.OS === 'android' && runState === 'idle' && (
+          <View style={styles.batteryGuideCard}>
+            <TouchableOpacity
+              style={styles.batteryGuideHeader}
+              onPress={() => setBatteryGuideExpanded((prev) => !prev)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.batteryGuideHeaderLeft}>
+                <Text style={styles.batteryGuideIcon}>⚡</Text>
+                <Text style={styles.batteryGuideTitle}>10km+ 러닝 화면 꺼짐 방지 설정</Text>
+              </View>
+              <View style={styles.batteryGuideToggleBadge}>
+                <Text style={styles.batteryGuideToggleText}>
+                  {batteryGuideExpanded ? '접기 ▲' : '설명 보기 ▼'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {batteryGuideExpanded && (
+              <View style={styles.batteryGuideBody}>
+                <Text style={styles.batteryGuideDesc}>
+                  화면이 꺼진 상태로 10km 이상(약 50분+) 달릴 때, Android 절전 모드로 인해 위치 기록이 중단되는 것을 방지합니다.
+                </Text>
+
+                {/* 3단계 경로 가이드 */}
+                <View style={styles.batteryGuideSteps}>
+                  <Text style={styles.batteryGuideStepItem}>
+                    ① <Text style={styles.boldWhite}>아래 [설정 열기]</Text> 터치 (앱 정보로 이동)
+                  </Text>
+                  <Text style={styles.batteryGuideStepItem}>
+                    ② <Text style={styles.boldAmber}>[배터리]</Text> (또는 앱 배터리 사용량) 메뉴 선택
+                  </Text>
+                  <Text style={styles.batteryGuideStepItem}>
+                    ③ <Text style={styles.boldAmber}>['제한 없음']</Text> (최적화 제외) 선택
+                  </Text>
+                </View>
+
+                {/* 버튼 영역 */}
+                <View style={styles.batteryGuideActionRow}>
+                  <TouchableOpacity
+                    style={styles.batteryGuideOpenBtn}
+                    onPress={() => Linking.openSettings()}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.batteryGuideOpenBtnText}>설정 바로가기</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.batteryGuideModalBtn}
+                    onPress={() => setShowBatteryGuide(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.batteryGuideModalBtnText}>자세한 가이드 팝업 ›</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {runState === 'idle' ? (
           <TouchableOpacity style={styles.startBtn} onPress={startTracking} activeOpacity={0.8}>
             <Text style={styles.controlBtnText}>▶  시작</Text>
@@ -671,6 +719,14 @@ export default function RunnerActiveScreen() {
         onAccept={handleDisclosureAccept}
         onDecline={handleDisclosureDecline}
       />
+
+      {/* Android 전용 배터리 최적화 제한 없음 상세 설정 안내 모달 */}
+      {Platform.OS === 'android' && (
+        <BatteryOptimizationGuideModal
+          visible={showBatteryGuide}
+          onClose={() => setShowBatteryGuide(false)}
+        />
+      )}
     </View>
   );
 }
@@ -783,4 +839,100 @@ const styles = StyleSheet.create({
   resumeBtn: { backgroundColor: Colors.amber },
   stopBtn: { backgroundColor: Colors.destructive },
   controlBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
+  batteryGuideCard: {
+    backgroundColor: 'rgba(255, 153, 0, 0.08)',
+    borderRadius: Radius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.amber,
+    overflow: 'hidden',
+  },
+  batteryGuideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing[2],
+    paddingHorizontal: Spacing[3],
+  },
+  batteryGuideHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[1],
+  },
+  batteryGuideIcon: {
+    fontSize: FontSize.xs,
+  },
+  batteryGuideTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.amber,
+  },
+  batteryGuideToggleBadge: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: Radius.sm,
+    backgroundColor: 'rgba(255, 153, 0, 0.15)',
+  },
+  batteryGuideToggleText: {
+    fontSize: FontSize.xs - 1,
+    color: Colors.amber,
+    fontWeight: '700',
+  },
+  batteryGuideBody: {
+    paddingHorizontal: Spacing[3],
+    paddingBottom: Spacing[3],
+    paddingTop: Spacing[1],
+    gap: Spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 153, 0, 0.12)',
+  },
+  batteryGuideDesc: {
+    fontSize: FontSize.xs,
+    color: Colors.white,
+    lineHeight: 17,
+  },
+  batteryGuideSteps: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: Radius.sm,
+    padding: Spacing[2],
+    gap: 4,
+  },
+  batteryGuideStepItem: {
+    fontSize: FontSize.xs,
+    color: Colors.gray400,
+    lineHeight: 16,
+  },
+  boldWhite: {
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  boldAmber: {
+    fontWeight: '700',
+    color: Colors.amber,
+  },
+  batteryGuideActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  batteryGuideOpenBtn: {
+    backgroundColor: Colors.amber,
+    borderRadius: Radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing[3],
+  },
+  batteryGuideOpenBtnText: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.navyDark,
+  },
+  batteryGuideModalBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: Spacing[2],
+  },
+  batteryGuideModalBtnText: {
+    fontSize: FontSize.xs,
+    color: Colors.amber,
+    fontWeight: '600',
+  },
 });
