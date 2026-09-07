@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Linking, AppState, type AppStateStatus,
+  View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Linking, AppState, Vibration, type AppStateStatus,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Clipboard from 'expo-clipboard';
@@ -73,6 +73,11 @@ export default function RunnerActiveScreen() {
   const distanceRef = useRef<number>(0);
   // 가장 최근에 산정한 페이스(초/km). 정지 구간에는 갱신하지 않아 화면·소켓이 일관된다.
   const paceSecPerKmRef = useRef<number>(0);
+  // ── 1km 구간(Lap) 페이스 산정용 ref ──
+  const lastLapDistRef = useRef<number>(0);
+  const lastLapTimeSecRef = useRef<number>(0);
+  const lastKmFloorRef = useRef<number>(0);
+  const lapPaceSecPerKmRef = useRef<number>(0);
   // 로컬 기록(SQLite) row id. 시작 시 생성되며, 종료 시 finalize 대상.
   const runRecordIdRef = useRef<number | null>(null);
 
@@ -103,6 +108,10 @@ export default function RunnerActiveScreen() {
   const [distance, setDistance] = useState(0); // km
   const [elapsed, setElapsed] = useState(0);   // 초
   const [paceSecPerKm, setPaceSecPerKm] = useState(0);
+  const [lapPaceSecPerKm, setLapPaceSecPerKm] = useState(0); // 현재 1km 구간 페이스
+  // 1km 돌파 HUD 알림 배너 상태
+  const [milestoneNotice, setMilestoneNotice] = useState<{ km: number; paceSec: number } | null>(null);
+  const milestoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [groupCopied, setGroupCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,6 +125,7 @@ export default function RunnerActiveScreen() {
 
   useEffect(() => () => {
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    if (milestoneTimerRef.current) clearTimeout(milestoneTimerRef.current);
   }, []);
 
   // ── 구글 플레이 명시적 고지 모달 상태 관리 ──
@@ -237,9 +247,42 @@ export default function RunnerActiveScreen() {
         const timeSec = currentElapsedMs() / 1000;
         const pace = newDist > 0 ? timeSec / newDist : 0;
         paceSecPerKmRef.current = pace;
+
+        // ── 1km 마일스톤 돌파 감지 (1.0km, 2.0km 등) ──
+        const currentKmFloor = Math.floor(newDist);
+        if (currentKmFloor > lastKmFloorRef.current && currentKmFloor >= 1) {
+          const completedDist = newDist - lastLapDistRef.current;
+          const completedTime = timeSec - lastLapTimeSecRef.current;
+          const splitPace = completedDist > 0 ? completedTime / completedDist : pace;
+
+          try {
+            Vibration.vibrate([0, 200, 100, 200]);
+          } catch {}
+
+          if (isAppActive) {
+            setMilestoneNotice({ km: currentKmFloor, paceSec: splitPace });
+            if (milestoneTimerRef.current) clearTimeout(milestoneTimerRef.current);
+            milestoneTimerRef.current = setTimeout(() => {
+              setMilestoneNotice(null);
+            }, 4000);
+          }
+
+          lastKmFloorRef.current = currentKmFloor;
+          lastLapDistRef.current = newDist;
+          lastLapTimeSecRef.current = timeSec;
+        }
+
+        // ── 현재 달리고 있는 1km 구간 페이스 산정 ──
+        const curLapDist = newDist - lastLapDistRef.current;
+        const curLapTime = timeSec - lastLapTimeSecRef.current;
+        // 최소 15m 이상 이동했을 때 구간 페이스 산정 (초반 노이즈/0 나누기 방지)
+        const curLapPace = curLapDist >= 0.015 ? curLapTime / curLapDist : pace;
+        lapPaceSecPerKmRef.current = curLapPace;
+
         if (isAppActive) {
           setDistance(newDist);
           setPaceSecPerKm(pace);
+          setLapPaceSecPerKm(curLapPace);
         }
       }
     }
@@ -373,6 +416,10 @@ export default function RunnerActiveScreen() {
     lastCoordRef.current = null;
     lastPointTsRef.current = 0;
     paceSecPerKmRef.current = 0;
+    lastLapDistRef.current = 0;
+    lastLapTimeSecRef.current = 0;
+    lastKmFloorRef.current = 0;
+    lapPaceSecPerKmRef.current = 0;
     lastSendTimeRef.current = 0;
     distanceRef.current = 0;
     fullPathRef.current = [];
@@ -381,6 +428,9 @@ export default function RunnerActiveScreen() {
     setElapsed(0);
     setDistance(0);
     setPaceSecPerKm(0);
+    setLapPaceSecPerKm(0);
+    setMilestoneNotice(null);
+    if (milestoneTimerRef.current) clearTimeout(milestoneTimerRef.current);
     setPath([]);
 
     // Android 배터리 최적화 제한 없음 권장 안내 (10km 이상 장시간 백그라운드 추적 보호)
@@ -601,6 +651,19 @@ export default function RunnerActiveScreen() {
         </Text>
       </View>
 
+      {/* 1km 마일스톤 돌파 HUD 배너 */}
+      {milestoneNotice && (
+        <View style={[styles.milestoneBanner, { top: insets.top + Spacing[3] + 36 }]}>
+          <Text style={styles.milestoneIcon}>🏁</Text>
+          <View style={styles.milestoneContent}>
+            <Text style={styles.milestoneTitle}>{milestoneNotice.km}km 완료!</Text>
+            <Text style={styles.milestoneSubtitle}>
+              구간 페이스 <Text style={styles.milestonePace}>{formatPace(milestoneNotice.paceSec)} /km</Text>
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* 다른 러너 목록 패널 */}
       {otherRunnerList.length > 0 && (
         <View style={styles.runnerPanel}>
@@ -616,12 +679,21 @@ export default function RunnerActiveScreen() {
         </View>
       )}
 
-      {/* 통계 패널 */}
+      {/* 통계 패널 (2x2 그리드) */}
       <View style={[styles.statsPanel, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 32 : Spacing[4]) }]}>
-        <View style={styles.statsRow}>
-          <StatBox label="시간" value={formatTime(elapsed)} />
-          <StatBox label="거리" value={`${distance.toFixed(2)} km`} />
-          <StatBox label="페이스" value={`${formatPace(paceSecPerKm)} /km`} />
+        <View style={styles.statsGrid}>
+          <View style={styles.statsRow}>
+            <StatBox label="운동 시간" value={formatTime(elapsed)} />
+            <StatBox label="달린 거리" value={`${distance.toFixed(2)} km`} />
+          </View>
+          <View style={styles.statsRow}>
+            <StatBox
+              label={`현재 ${Math.floor(distance) + 1}km 페이스`}
+              value={`${formatPace(lapPaceSecPerKm)} /km`}
+              highlight
+            />
+            <StatBox label="전체 평균 페이스" value={`${formatPace(paceSecPerKm)} /km`} />
+          </View>
         </View>
 
         <TouchableOpacity style={styles.metaRow} onPress={handleCopyGroupId} activeOpacity={0.6}>
@@ -731,11 +803,19 @@ export default function RunnerActiveScreen() {
   );
 }
 
-function StatBox({ label, value }: { label: string; value: string }) {
+function StatBox({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
     <View style={styles.statBox}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statLabel, highlight && styles.statLabelHighlight]}>{label}</Text>
+      <Text style={[styles.statValue, highlight && styles.statValueHighlight]}>{value}</Text>
     </View>
   );
 }
@@ -744,6 +824,46 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   mapWrap: { flex: 1 },
   map: { flex: 1 },
+
+  milestoneBanner: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderWidth: 1.5,
+    borderColor: Colors.amber,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing[2],
+    paddingHorizontal: Spacing[4],
+    gap: Spacing[3],
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 100,
+  },
+  milestoneIcon: {
+    fontSize: 24,
+  },
+  milestoneContent: {
+    alignItems: 'flex-start',
+  },
+  milestoneTitle: {
+    color: Colors.white,
+    fontSize: FontSize.sm,
+    fontWeight: '800',
+  },
+  milestoneSubtitle: {
+    color: Colors.gray400,
+    fontSize: FontSize.xs,
+    fontWeight: '500',
+  },
+  milestonePace: {
+    color: Colors.amber,
+    fontWeight: '700',
+  },
 
   recenterBtn: {
     position: 'absolute',
@@ -802,22 +922,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[4],
     gap: Spacing[3],
   },
+  statsGrid: {
+    gap: Spacing[2],
+  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: Spacing[2],
   },
-  statBox: { flex: 1, alignItems: 'center', gap: Spacing[1] },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: Spacing[2],
+    paddingHorizontal: Spacing[2],
+    borderRadius: Radius.md,
+    gap: 2,
+  },
   statLabel: {
     fontSize: FontSize.xs,
     color: Colors.gray400,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  statLabelHighlight: {
+    color: Colors.amber,
   },
   statValue: {
-    fontSize: FontSize.lg,
+    fontSize: FontSize.xl,
     fontWeight: '800',
     color: Colors.white,
+  },
+  statValueHighlight: {
+    color: Colors.amber,
   },
   metaRow: { alignItems: 'center' },
   metaText: { fontSize: FontSize.xs, color: Colors.mutedForeground },
