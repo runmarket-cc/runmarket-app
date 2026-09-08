@@ -6,6 +6,11 @@ name: EAS Build & Deploy
 on:
   workflow_dispatch:
     inputs:
+      app_version:
+        description: '배포할 앱 버전 (예: 1.0.1, 비워두면 기본값 유지)'
+        required: false
+        default: ''
+        type: string
       platform:
         description: '빌드 및 배포 대상 플랫폼 (all, ios, android)'
         required: true
@@ -60,6 +65,18 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Determine and Apply App Version
+        id: version
+        run: |
+          if [ -n "${{ inputs.app_version }}" ]; then
+            FINAL_VERSION="${{ inputs.app_version }}"
+          else
+            FINAL_VERSION="1.0.${{ github.run_number }}"
+          fi
+          echo "Final app version: $FINAL_VERSION"
+          echo "version=$FINAL_VERSION" >> $GITHUB_OUTPUT
+          npm version $FINAL_VERSION --no-git-tag-version --allow-same-version
+
       - name: Run EAS Build & Auto-Submit
         run: |
           SUBMIT_OPT=""
@@ -75,3 +92,5 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
