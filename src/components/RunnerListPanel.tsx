@@ -23,6 +23,7 @@ export interface RunnerInfo {
   lat: number;
   lng: number;
   pace: string;
+  lapPace?: string;
   distance: number;
   time: number;
   color?: string;
@@ -78,24 +79,44 @@ export function RunnerListPanel({ runners, onPressRunner, title, description }: 
 }
 
 function RunnerRow({ runner, color }: { runner: RunnerInfo; color: string }) {
+  const currentKm = Math.floor(runner.distance ?? 0) + 1;
+  const lapPaceStr = runner.lapPace && runner.lapPace !== '--:--' ? `${runner.lapPace}/km` : null;
+  const avgPaceStr = runner.pace === '--:--' ? '-' : `${runner.pace}/km`;
+
   return (
     <View style={styles.row}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={styles.name} numberOfLines={1}>{runner.runnerId}</Text>
+      <View style={styles.nameBlock}>
+        <Text style={styles.name} numberOfLines={1}>{runner.runnerId}</Text>
+        <Text style={styles.subMeta}>
+          {(runner.distance ?? 0).toFixed(2)}km · {formatTime(runner.time ?? 0)}
+        </Text>
+      </View>
       <View style={styles.stats}>
-        <StatChip label="거리" value={`${(runner.distance ?? 0).toFixed(2)}km`} />
-        <StatChip label="페이스" value={runner.pace === '--:--' ? '-' : `${runner.pace}/km`} />
-        <StatChip label="시간" value={formatTime(runner.time ?? 0)} />
+        <StatChip
+          label={`현재 ${currentKm}km`}
+          value={lapPaceStr ?? avgPaceStr}
+          highlight
+        />
+        <StatChip label="평균 페이스" value={avgPaceStr} />
       </View>
     </View>
   );
 }
 
-function StatChip({ label, value }: { label: string; value: string }) {
+function StatChip({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
     <View style={styles.chip}>
-      <Text style={styles.chipLabel}>{label}</Text>
-      <Text style={styles.chipValue}>{value}</Text>
+      <Text style={[styles.chipLabel, highlight && styles.chipLabelHighlight]}>{label}</Text>
+      <Text style={[styles.chipValue, highlight && styles.chipValueHighlight]}>{value}</Text>
     </View>
   );
 }
@@ -152,14 +173,25 @@ const styles = StyleSheet.create({
     gap: Spacing[3],
   },
   dot: { width: 10, height: 10, borderRadius: 5 },
+  nameBlock: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 2,
+  },
   name: {
     fontSize: FontSize.sm,
     fontWeight: '700',
     color: Colors.white,
-    flex: 1,
+  },
+  subMeta: {
+    fontSize: 11,
+    color: Colors.gray400,
+    fontWeight: '500',
   },
   stats: { flexDirection: 'row', gap: Spacing[2] },
-  chip: { alignItems: 'center', minWidth: 52 },
-  chipLabel: { fontSize: FontSize.xs, color: Colors.mutedForeground, fontWeight: '500' },
-  chipValue: { fontSize: FontSize.xs, color: Colors.amber, fontWeight: '700' },
+  chip: { alignItems: 'flex-end', minWidth: 68 },
+  chipLabel: { fontSize: 10, color: Colors.mutedForeground, fontWeight: '600' },
+  chipLabelHighlight: { color: Colors.amber },
+  chipValue: { fontSize: FontSize.xs, color: Colors.white, fontWeight: '700' },
+  chipValueHighlight: { color: Colors.amber, fontWeight: '800' },
 });

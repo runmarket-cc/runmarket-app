@@ -310,10 +310,12 @@ export default function RunnerActiveScreen() {
       const timeSec = Math.floor(currentElapsedMs() / 1000);
       const currentDist = distanceRef.current;
       const currentPace = formatPace(paceSecPerKmRef.current);
+      const currentLapPace = formatPace(lapPaceSecPerKmRef.current);
       sendLocation({
         lat: coord.latitude,
         lng: coord.longitude,
         pace: currentPace,
+        lapPace: currentLapPace,
         distance: Math.round(currentDist * 100) / 100,
         time: timeSec,
         color,

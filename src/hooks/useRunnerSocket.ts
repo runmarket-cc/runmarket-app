@@ -72,9 +72,15 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
         const msg: SpectatorMessage = JSON.parse(event.data);
         if (!msg.runnerId || !msg.data) return; // 유효하지 않은 메시지 무시
         if (msg.runnerId === runnerId) return;   // 내 위치는 무시
-setOtherRunners((prev) => {
+        const lapPace = msg.data.lapPace ?? msg.data.pace;
+        setOtherRunners((prev) => {
           const next = new Map(prev);
-          next.set(msg.runnerId, { ...msg.data, runnerId: msg.runnerId, updatedAt: Date.now() });
+          next.set(msg.runnerId, {
+            ...msg.data,
+            lapPace,
+            runnerId: msg.runnerId,
+            updatedAt: Date.now(),
+          });
           return next;
         });
       } catch {}
