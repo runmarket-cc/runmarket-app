@@ -1,8 +1,11 @@
+const buildPatch = process.env.GITHUB_RUN_NUMBER || '1';
+const defaultVersion = `1.0.${buildPatch}`;
+
 module.exports = {
   expo: {
     name: '런마켓',
     slug: 'runmarket-app',
-    version: '1.0.1',
+    version: process.env.APP_VERSION || defaultVersion,
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
