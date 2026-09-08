@@ -46,6 +46,8 @@ jobs:
   build-and-deploy:
     name: Build & Deploy (${{ inputs.platform }} - ${{ inputs.profile }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -94,3 +96,19 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           APP_VERSION: ${{ steps.version.outputs.version }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
+
+      - name: Create and Push Git Tag
+        if: success()
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG_NAME="v${VERSION}"
+          if [ "${{ inputs.profile }}" != "production" ]; then
+            TAG_NAME="v${VERSION}-${{ inputs.profile }}"
+          fi
+
+          echo "Creating and pushing Git tag: $TAG_NAME"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -fa "$TAG_NAME" -m "Release $TAG_NAME (${{ inputs.platform }} - ${{ inputs.profile }})"
+          git push origin "$TAG_NAME" --force
