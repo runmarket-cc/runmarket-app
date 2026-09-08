@@ -13,34 +13,58 @@ const PRUNE_INTERVAL_MS = 5000;
 
 export type RunnerState = RunnerPayload & { runnerId: string; updatedAt: number };
 
+export interface SpectatorMilestone {
+  runnerId: string;
+  km: number;
+  pace: string;
+}
+
 interface Options {
   groupId: string;
   token: string;
   onOpen?: () => void;
   onClose?: () => void;
   onError?: () => void;
+  onMilestone?: (milestone: SpectatorMilestone) => void;
+}
+
+function formatPace(secPerKm: number): string {
+  if (!isFinite(secPerKm) || secPerKm <= 0) return '--:--';
+  const m = Math.floor(secPerKm / 60);
+  const s = Math.round(secPerKm % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+interface RunnerLapTracker {
+  lastKmFloor: number;
+  lastLapDist: number;
+  lastLapTime: number;
+  lapPace: string;
 }
 
 /**
  * SPECTATOR용 WebSocket 훅
  * - /ws/group/{groupId} 구독
- * - runners: 그룹 내 러너들의 최신 상태 Map
+ * - runners: 그룹 내 러너들의 최신 상태 Map (1km 구간 페이스 lapPace 포함)
  * - 연결 끊김 시 최대 5회 자동 재연결 (3초 간격)
  */
-export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError }: Options) {
+export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError, onMilestone }: Options) {
   const wsRef = useRef<WebSocket | null>(null);
   const attemptsRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
   const [runners, setRunners] = useState<Map<string, RunnerState>>(new Map());
+  const lapTrackersRef = useRef<Map<string, RunnerLapTracker>>(new Map());
 
   // 콜백을 ref로 보관해서 connect 의존성에서 제외
   const onOpenRef = useRef(onOpen);
   const onCloseRef = useRef(onClose);
   const onErrorRef = useRef(onError);
+  const onMilestoneRef = useRef(onMilestone);
   useEffect(() => { onOpenRef.current = onOpen; }, [onOpen]);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
+  useEffect(() => { onMilestoneRef.current = onMilestone; }, [onMilestone]);
 
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
@@ -71,10 +95,57 @@ export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError }:
     ws.onmessage = (event) => {
       try {
         const msg: SpectatorMessage = JSON.parse(event.data);
+        if (!msg.runnerId || !msg.data) return;
+
+        let lapPace = msg.data.lapPace;
+        const curDist = msg.data.distance ?? 0;
+        const curTime = msg.data.time ?? 0;
+        const currentKmFloor = Math.floor(curDist);
+
+        let tracker = lapTrackersRef.current.get(msg.runnerId);
+        if (!tracker) {
+          tracker = {
+            lastKmFloor: currentKmFloor,
+            lastLapDist: currentKmFloor,
+            lastLapTime: curTime,
+            lapPace: msg.data.pace,
+          };
+        } else if (currentKmFloor > tracker.lastKmFloor && currentKmFloor >= 1) {
+          const completedDist = curDist - tracker.lastLapDist;
+          const completedTime = curTime - tracker.lastLapTime;
+          const splitPace = completedDist > 0 && completedTime > 0
+            ? formatPace(completedTime / completedDist)
+            : msg.data.pace;
+
+          onMilestoneRef.current?.({
+            runnerId: msg.runnerId,
+            km: currentKmFloor,
+            pace: splitPace,
+          });
+
+          tracker.lastKmFloor = currentKmFloor;
+          tracker.lastLapDist = curDist;
+          tracker.lastLapTime = curTime;
+        }
+
+        // 러너가 lapPace를 직접 보내주지 않은 구버전인 경우 추정 계산
+        if (!lapPace || lapPace === '--:--') {
+          const curLapDist = curDist - tracker.lastLapDist;
+          const curLapTime = curTime - tracker.lastLapTime;
+          if (curLapDist >= 0.015 && curLapTime > 0) {
+            lapPace = formatPace(curLapTime / curLapDist);
+          } else {
+            lapPace = msg.data.pace;
+          }
+        }
+        tracker.lapPace = lapPace;
+        lapTrackersRef.current.set(msg.runnerId, tracker);
+
         setRunners((prev) => {
           const next = new Map(prev);
           next.set(msg.runnerId, {
             ...msg.data,
+            lapPace,
             runnerId: msg.runnerId,
             updatedAt: Date.now(),
           });

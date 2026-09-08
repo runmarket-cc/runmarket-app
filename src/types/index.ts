@@ -21,7 +21,8 @@ export interface SocketTokenRequest {
 export interface RunnerPayload {
   lat: number;
   lng: number;
-  pace: string;     // "5:30" 형식 (mm:ss / km)
+  pace: string;     // "5:30" 형식 (mm:ss / km, 전체 평균 페이스)
+  lapPace?: string; // "5:15" 형식 (mm:ss / km, 현재 1km 구간 페이스)
   distance: number; // km
   time: number;     // 초
   color?: string;   // 러너가 선택한 색상 (hex)
