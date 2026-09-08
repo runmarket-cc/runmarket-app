@@ -90,26 +90,18 @@ function RunnerRow({ runner, color }: { runner: RunnerInfo; color: string }) {
       <View style={styles.stats}>
         <StatChip label="거리" value={`${(runner.distance ?? 0).toFixed(2)}km`} />
         <StatChip label="페이스" value={runner.pace === '--:--' ? '-' : `${runner.pace}/km`} />
-        <StatChip label="1km/h" value={lapPaceTime} highlight />
+        <StatChip label="1km" value={lapPaceTime} />
         <StatChip label="시간" value={formatTime(runner.time ?? 0)} />
       </View>
     </View>
   );
 }
 
-function StatChip({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
+function StatChip({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.chip}>
-      <Text style={[styles.chipLabel, highlight && styles.chipLabelHighlight]}>{label}</Text>
-      <Text style={[styles.chipValue, highlight && styles.chipValueHighlight]}>{value}</Text>
+      <Text style={styles.chipLabel}>{label}</Text>
+      <Text style={styles.chipValue}>{value}</Text>
     </View>
   );
 }
@@ -175,7 +167,5 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', gap: Spacing[2] },
   chip: { alignItems: 'center', minWidth: 46 },
   chipLabel: { fontSize: 10, color: Colors.mutedForeground, fontWeight: '500' },
-  chipLabelHighlight: { color: Colors.amber, fontWeight: '600' },
-  chipValue: { fontSize: FontSize.xs, color: Colors.white, fontWeight: '700' },
-  chipValueHighlight: { color: Colors.amber, fontWeight: '800' },
+  chipValue: { fontSize: FontSize.xs, color: Colors.amber, fontWeight: '700' },
 });

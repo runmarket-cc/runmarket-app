@@ -103,7 +103,7 @@ export default function SpectatorActiveScreen() {
               key={runner.runnerId}
               coordinate={{ latitude: runner.lat, longitude: runner.lng }}
               title={runner.runnerId}
-              description={`${runner.distance.toFixed(2)}km · 1km/h: ${lapPaceText} · 페이스: ${paceText}`}
+              description={`${runner.distance.toFixed(2)}km · 1km: ${lapPaceText} · 페이스: ${paceText}`}
             >
               <View style={[styles.runnerMarker, { backgroundColor: runner.color ?? getRunnerColor(runner.runnerId) }]}>
                 <Text style={styles.runnerMarkerText}>🏃</Text>
