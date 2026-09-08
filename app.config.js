@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: '런마켓',
     slug: 'runmarket-app',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
