@@ -79,26 +79,19 @@ export function RunnerListPanel({ runners, onPressRunner, title, description }: 
 }
 
 function RunnerRow({ runner, color }: { runner: RunnerInfo; color: string }) {
-  const currentKm = Math.floor(runner.distance ?? 0) + 1;
-  const lapPaceStr = runner.lapPace && runner.lapPace !== '--:--' ? `${runner.lapPace}/km` : null;
-  const avgPaceStr = runner.pace === '--:--' ? '-' : `${runner.pace}/km`;
+  const lapPaceTime = runner.lapPace && runner.lapPace !== '--:--'
+    ? runner.lapPace
+    : (runner.pace === '--:--' ? '-' : runner.pace);
 
   return (
     <View style={styles.row}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <View style={styles.nameBlock}>
-        <Text style={styles.name} numberOfLines={1}>{runner.runnerId}</Text>
-        <Text style={styles.subMeta}>
-          {(runner.distance ?? 0).toFixed(2)}km · {formatTime(runner.time ?? 0)}
-        </Text>
-      </View>
+      <Text style={styles.name} numberOfLines={1}>{runner.runnerId}</Text>
       <View style={styles.stats}>
-        <StatChip
-          label={`현재 ${currentKm}km`}
-          value={lapPaceStr ?? avgPaceStr}
-          highlight
-        />
-        <StatChip label="평균 페이스" value={avgPaceStr} />
+        <StatChip label="거리" value={`${(runner.distance ?? 0).toFixed(2)}km`} />
+        <StatChip label="페이스" value={runner.pace === '--:--' ? '-' : `${runner.pace}/km`} />
+        <StatChip label="1km/h" value={lapPaceTime} highlight />
+        <StatChip label="시간" value={formatTime(runner.time ?? 0)} />
       </View>
     </View>
   );
@@ -166,32 +159,23 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing[4],
+    paddingHorizontal: Spacing[3],
     paddingVertical: Spacing[3],
     borderBottomWidth: 1,
     borderBottomColor: Colors.rowDivider,
-    gap: Spacing[3],
+    gap: Spacing[2],
   },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  nameBlock: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 2,
-  },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   name: {
     fontSize: FontSize.sm,
     fontWeight: '700',
     color: Colors.white,
-  },
-  subMeta: {
-    fontSize: 11,
-    color: Colors.gray400,
-    fontWeight: '500',
+    flex: 1,
   },
   stats: { flexDirection: 'row', gap: Spacing[2] },
-  chip: { alignItems: 'flex-end', minWidth: 68 },
-  chipLabel: { fontSize: 10, color: Colors.mutedForeground, fontWeight: '600' },
-  chipLabelHighlight: { color: Colors.amber },
+  chip: { alignItems: 'center', minWidth: 46 },
+  chipLabel: { fontSize: 10, color: Colors.mutedForeground, fontWeight: '500' },
+  chipLabelHighlight: { color: Colors.amber, fontWeight: '600' },
   chipValue: { fontSize: FontSize.xs, color: Colors.white, fontWeight: '700' },
   chipValueHighlight: { color: Colors.amber, fontWeight: '800' },
 });
