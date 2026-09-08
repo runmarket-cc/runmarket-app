@@ -24,7 +24,7 @@
     },
     "production": {
       "environment": "production",
-      "autoIncrement": true
+      "autoIncrement": "version"
     }
   },
   "submit": {
