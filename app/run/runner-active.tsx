@@ -766,21 +766,21 @@ export default function RunnerActiveScreen() {
 
         {runState === 'idle' ? (
           <TouchableOpacity style={styles.startBtn} onPress={startTracking} activeOpacity={0.8}>
-            <Text style={styles.controlBtnText}>▶  시작</Text>
+            <Text style={styles.startBtnText}>시작</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.controlRow}>
             {runState === 'running' ? (
               <TouchableOpacity style={[styles.controlBtn, styles.pauseBtn]} onPress={pauseTracking} activeOpacity={0.8}>
-                <Text style={styles.controlBtnText}>❚❚  일시정지</Text>
+                <Text style={styles.controlBtnText}>일시정지</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={[styles.controlBtn, styles.resumeBtn]} onPress={resumeTracking} activeOpacity={0.8}>
-                <Text style={styles.controlBtnText}>▶  계속</Text>
+                <Text style={styles.amberBtnText}>계속</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={[styles.controlBtn, styles.stopBtn]} onPress={handleStop} activeOpacity={0.8}>
-              <Text style={styles.controlBtnText}>■  정지</Text>
+              <Text style={styles.controlBtnText}>정지</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -912,16 +912,25 @@ const styles = StyleSheet.create({
     borderColor: Colors.white,
   },
   runnerPanel: {
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.navyDark,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderDark,
     maxHeight: 240,
   },
   myMarkerText: { fontSize: 18 },
 
   statsPanel: {
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.navyDark,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderDark,
     paddingTop: Spacing[4],
     paddingHorizontal: Spacing[4],
     gap: Spacing[3],
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
   },
   statsGrid: {
     gap: Spacing[2],
@@ -935,8 +944,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: Spacing[2],
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    paddingVertical: Spacing[2.5],
     paddingHorizontal: Spacing[2],
     borderRadius: Radius.md,
     gap: 2,
@@ -963,20 +974,52 @@ const styles = StyleSheet.create({
 
   startBtn: {
     backgroundColor: Colors.amber,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing[3],
+    borderRadius: Radius.lg,
+    height: 54,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  startBtnText: {
+    color: Colors.navyDark,
+    fontSize: FontSize.lg,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  amberBtnText: {
+    color: Colors.navyDark,
+    fontSize: FontSize.base,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   controlRow: { flexDirection: 'row', gap: Spacing[3] },
   controlBtn: {
     flex: 1,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing[3],
+    borderRadius: Radius.lg,
+    height: 50,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  pauseBtn: { backgroundColor: Colors.statusGray },
-  resumeBtn: { backgroundColor: Colors.amber },
-  stopBtn: { backgroundColor: Colors.destructive },
+  pauseBtn: {
+    backgroundColor: Colors.navy,
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
+  },
+  resumeBtn: {
+    backgroundColor: Colors.amber,
+  },
+  stopBtn: {
+    backgroundColor: Colors.destructive,
+  },
   controlBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
   batteryGuideCard: {
     backgroundColor: 'rgba(255, 153, 0, 0.08)',
