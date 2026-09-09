@@ -9,27 +9,30 @@ import {
 } from 'react-native';
 import { Colors, FontSize, Spacing, Radius } from '../constants/theme';
 
-export type DisclosureType = 'foreground' | 'background';
+export type DisclosureType = 'foreground' | 'background' | 'all';
 
 interface LocationDisclosureModalProps {
   visible: boolean;
-  type: DisclosureType;
+  type?: DisclosureType;
   onAccept: () => void;
   onDecline: () => void;
 }
 
 /**
  * Google Play [사용자 데이터 - 명시적 공개 및 동의 요건(Prominent Disclosure)] 준수 모달.
- * 위치 데이터 런타임 권한 요청 직전에 노출되어 데이터 수집 사실 및 사용 목적을 명시적으로 고지합니다.
+ * shadcn/ui 다이얼로그 패턴 및 www.runmarket.cc 디자인 토큰(Dark Navy / Amber) 기반.
+ * 
+ * 구글 필수 요건:
+ * 1. '위치 데이터' 명시
+ * 2. '앱이 닫혀 있거나 사용 중이 아닐 때도(화면이 꺼져 있을 때도)' 수집 사실 명시
+ * 3. 구체적인 사용 목적(러닝 경로 기록, 페이스 측정, 그룹원 실시간 위치 공유) 명시
+ * 4. 사용자의 명확한 긍정적 동의(동의 및 계속) 및 거부(취소) 액션 제공
  */
 export function LocationDisclosureModal({
   visible,
-  type,
   onAccept,
   onDecline,
 }: LocationDisclosureModalProps) {
-  const isBackground = type === 'background';
-
   return (
     <Modal
       visible={visible}
@@ -39,75 +42,72 @@ export function LocationDisclosureModal({
       onRequestClose={onDecline}
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          {/* 상단 헤더 아이콘 & 타이틀 */}
-          <View style={styles.header}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.iconText}>{isBackground ? '🏃' : '📍'}</Text>
+        <View style={styles.dialogContent}>
+          {/* Dialog Header */}
+          <View style={styles.dialogHeader}>
+            <View style={styles.iconBadge}>
+              <Text style={styles.iconText}>📍</Text>
             </View>
-            <Text style={styles.title}>
-              {isBackground
-                ? '백그라운드 위치 권한 안내'
-                : '위치 정보 접근 권한 안내'}
+            <Text style={styles.dialogTitle}>위치 정보 수집 및 이용 안내</Text>
+            <Text style={styles.dialogDescription}>
+              실시간 러닝 측정과 그룹 위치 공유를 위한 안내입니다
             </Text>
           </View>
 
           <ScrollView
-            style={styles.scrollArea}
-            contentContainerStyle={styles.scrollContent}
+            style={styles.dialogBody}
+            contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
+            bounces={false}
           >
-            {/* 핵심 정책 고지 박스 (Google Play 필수 명시 문구) */}
-            <View style={styles.noticeBox}>
-              <Text style={styles.noticeLabel}>[위치 데이터 수집 및 사용 사실 안내]</Text>
-              {isBackground ? (
-                <Text style={styles.noticeText}>
-                  런마켓은 <Text style={styles.highlight}>앱이 닫혀 있거나 사용 중이 아닐 때도(화면이 꺼져 있거나 다른 앱을 사용할 때도)</Text> 실시간 러닝 경로 기록, 이동 거리 및 페이스 측정, 그룹 참가자 간의 실시간 위치 공유 기능을 제공하기 위해 <Text style={styles.highlight}>위치 데이터</Text>를 수집합니다.
-                </Text>
-              ) : (
-                <Text style={styles.noticeText}>
-                  런마켓은 러닝 중 <Text style={styles.highlight}>실시간 이동 경로(GPS) 기록, 이동 거리 및 페이스 측정, 참가자 간 실시간 위치 공유</Text> 기능을 제공하기 위해 사용자의 <Text style={styles.highlight}>위치 데이터</Text>를 수집하고 사용합니다.
-                </Text>
-              )}
+            {/* shadcn Alert 형태의 구글 플레이 정책 핵심 고지 박스 */}
+            <View style={styles.alertBox}>
+              <View style={styles.alertTitleRow}>
+                <View style={styles.alertDot} />
+                <Text style={styles.alertTitle}>백그라운드 위치 데이터 수집 안내</Text>
+              </View>
+              <Text style={styles.alertText}>
+                런마켓은 <Text style={styles.highlightText}>앱이 닫혀 있거나 사용 중이 아닐 때도(화면이 꺼져 있거나 다른 앱을 사용할 때도)</Text> 실시간 러닝 경로 기록, 이동 거리 및 페이스 측정, 그룹 참가자 간의 실시간 위치 공유 기능을 제공하기 위해 <Text style={styles.highlightText}>위치 데이터</Text>를 수집합니다.
+              </Text>
             </View>
 
-            {/* 세부 기능 및 데이터 사용 범위 */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailTitle}>주요 사용 목적</Text>
-              <Text style={styles.detailItem}>• 러닝 경로(GPS) 실시간 지도 표시 및 기록 저장</Text>
-              <Text style={styles.detailItem}>• 달리기 페이스(Pace) 및 누적 이동 거리 계산</Text>
-              <Text style={styles.detailItem}>• 참가 중인 러닝 그룹원들과 실시간 위치 공유</Text>
-              <Text style={styles.privacyNote}>
-                ※ 수집된 위치 데이터는 광고 목적으로 사용되지 않으며, 상기 러닝 기능 제공 이외의 목적으로는 사용되거나 외부에 공유되지 않습니다.
-              </Text>
-              {isBackground && (
-                <Text style={styles.detailSubNotice}>
-                  ※ 안정적인 러닝 기록 및 실시간 위치 공유 유지를 위해 다음 권한 설정 화면에서 <Text style={styles.boldText}>"항상 허용"</Text>을 선택해주세요.
+            {/* 주요 사용 목적 카드 */}
+            <View style={styles.purposeCard}>
+              <Text style={styles.purposeTitle}>주요 사용 목적</Text>
+              <View style={styles.purposeList}>
+                <Text style={styles.purposeItem}>
+                  <Text style={styles.bullet}>•</Text> 화면이 꺼진 상태에서도 끊김 없는 실시간 GPS 러닝 경로 기록
                 </Text>
-              )}
+                <Text style={styles.purposeItem}>
+                  <Text style={styles.bullet}>•</Text> 달리기 페이스(Pace) 및 누적 이동 거리 실시간 계산
+                </Text>
+                <Text style={styles.purposeItem}>
+                  <Text style={styles.bullet}>•</Text> 참가 중인 러닝 그룹원들과 실시간 위치 공유
+                </Text>
+              </View>
+
+              <Text style={styles.privacyNote}>
+                ※ 수집된 위치 데이터는 광고 목적으로 사용되지 않으며, 상기 러닝 기능 제공 이외의 목적으로는 외부에 제공되지 않습니다.
+              </Text>
             </View>
           </ScrollView>
 
-          {/* 선택 버튼 영역 (명시적 동의 / 거부) */}
-          <View style={styles.buttonRow}>
+          {/* Dialog Footer (shadcn Buttons) */}
+          <View style={styles.dialogFooter}>
             <TouchableOpacity
-              style={[styles.button, styles.declineButton]}
+              style={[styles.button, styles.outlineButton]}
               onPress={onDecline}
               activeOpacity={0.7}
             >
-              <Text style={styles.declineButtonText}>
-                {isBackground ? '나중에 (포그라운드만)' : '취소'}
-              </Text>
+              <Text style={styles.outlineButtonText}>취소</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, styles.acceptButton]}
+              style={[styles.button, styles.primaryButton]}
               onPress={onAccept}
               activeOpacity={0.8}
             >
-              <Text style={styles.acceptButtonText}>
-                {isBackground ? '동의하고 설정하기' : '동의 및 계속'}
-              </Text>
+              <Text style={styles.primaryButtonText}>동의 및 계속</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -124,131 +124,164 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing[4],
   },
-  card: {
+  // shadcn Dialog Container
+  dialogContent: {
     width: '100%',
     maxWidth: 380,
-    maxHeight: '85%',
-    backgroundColor: Colors.navy,
-    borderRadius: Radius.xl,
-    padding: Spacing[5],
+    backgroundColor: Colors.navyDark, // #1a2332
+    borderRadius: Radius.lg, // 12
     borderWidth: 1,
-    borderColor: Colors.borderDark,
+    borderColor: Colors.borderDark, // #374151
+    paddingHorizontal: Spacing[5],
+    paddingTop: Spacing[5],
+    paddingBottom: Spacing[4],
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 12,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: Spacing[4],
-  },
-  iconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255, 153, 0, 0.15)',
-    justifyContent: 'center',
+  dialogHeader: {
     alignItems: 'center',
     marginBottom: Spacing[3],
   },
-  iconText: {
-    fontSize: 26,
+  iconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 153, 0, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 153, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing[2],
   },
-  title: {
+  iconText: {
+    fontSize: 22,
+  },
+  dialogTitle: {
     fontSize: FontSize.lg,
-    fontWeight: '800',
+    fontWeight: '700',
     color: Colors.white,
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
-  scrollArea: {
-    maxHeight: 280,
-    marginBottom: Spacing[4],
+  dialogDescription: {
+    fontSize: FontSize.xs,
+    color: Colors.gray400,
+    textAlign: 'center',
+    marginTop: Spacing[1],
   },
-  scrollContent: {
+  dialogBody: {
+    maxHeight: 320,
+  },
+  bodyContent: {
     gap: Spacing[3],
+    paddingVertical: Spacing[1],
   },
-  noticeBox: {
-    backgroundColor: 'rgba(255, 153, 0, 0.1)',
+  // shadcn Alert Card
+  alertBox: {
+    backgroundColor: 'rgba(255, 153, 0, 0.08)',
     borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 153, 0, 0.28)',
     padding: Spacing[3],
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.amber,
   },
-  noticeLabel: {
+  alertTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[2],
+    marginBottom: Spacing[1],
+  },
+  alertDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.amber,
+  },
+  alertTitle: {
     fontSize: FontSize.xs,
     fontWeight: '700',
     color: Colors.amber,
-    marginBottom: Spacing[1],
+    letterSpacing: -0.2,
   },
-  noticeText: {
-    fontSize: FontSize.sm,
-    color: Colors.white,
-    lineHeight: 20,
+  alertText: {
+    fontSize: FontSize.xs + 0.5,
+    color: '#E2E8F0',
+    lineHeight: 19,
   },
-  highlight: {
+  highlightText: {
     fontWeight: '700',
     color: Colors.amber,
   },
-  detailSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  // Feature Purpose Card
+  purposeCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     padding: Spacing[3],
-    gap: Spacing[1],
+    gap: Spacing[2],
   },
-  detailTitle: {
+  purposeTitle: {
     fontSize: FontSize.xs,
     fontWeight: '700',
     color: Colors.gray400,
-    marginBottom: Spacing[1],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  detailItem: {
+  purposeList: {
+    gap: 4,
+  },
+  purposeItem: {
     fontSize: FontSize.xs,
-    color: Colors.gray400,
+    color: '#CBD5E1',
     lineHeight: 18,
+  },
+  bullet: {
+    color: Colors.amber,
+    fontWeight: '700',
   },
   privacyNote: {
-    fontSize: FontSize.xs,
+    fontSize: 11,
     color: '#94A3B8',
-    lineHeight: 17,
-    marginTop: Spacing[2],
+    lineHeight: 16,
+    marginTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    paddingTop: Spacing[2],
   },
-  detailSubNotice: {
-    fontSize: FontSize.xs,
-    color: Colors.amber,
-    lineHeight: 18,
-    marginTop: Spacing[1],
-  },
-  boldText: {
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  buttonRow: {
+  // Dialog Footer
+  dialogFooter: {
     flexDirection: 'row',
     gap: Spacing[2],
-    marginTop: Spacing[1],
+    marginTop: Spacing[4],
   },
   button: {
     flex: 1,
-    paddingVertical: Spacing[3],
-    borderRadius: Radius.md,
+    height: 42,
+    borderRadius: Radius.md, // 8
     alignItems: 'center',
     justifyContent: 'center',
   },
-  declineButton: {
-    backgroundColor: Colors.borderDark,
+  // shadcn Outline Button
+  outlineButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.borderDark, // #374151
   },
-  declineButtonText: {
+  outlineButtonText: {
     fontSize: FontSize.sm,
     fontWeight: '600',
     color: Colors.gray400,
   },
-  acceptButton: {
-    backgroundColor: Colors.amber,
+  // shadcn Default RunMarket Button
+  primaryButton: {
+    backgroundColor: Colors.amber, // #ff9900
   },
-  acceptButtonText: {
+  primaryButtonText: {
     fontSize: FontSize.sm,
     fontWeight: '700',
-    color: Colors.navyDark,
+    color: Colors.navyDark, // #1a2332
   },
 });
