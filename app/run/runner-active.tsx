@@ -16,7 +16,7 @@ import { RUN_LOCATION_TASK, setLocationHandler } from '../../src/services/backgr
 import { createRun, appendPoint, finishRun } from '../../src/services/runRecordStore';
 import { syncPendingRuns } from '../../src/services/runSync';
 import { HeaderBackButton } from './_layout';
-import { LocationDisclosureModal, DisclosureType } from '../../src/components/LocationDisclosureModal';
+import { LocationDisclosureModal } from '../../src/components/LocationDisclosureModal';
 import { BatteryOptimizationGuideModal } from '../../src/components/BatteryOptimizationGuideModal';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
@@ -129,7 +129,7 @@ export default function RunnerActiveScreen() {
   }, []);
 
   // ── 구글 플레이 명시적 고지 모달 상태 관리 ──
-  const [disclosureType, setDisclosureType] = useState<DisclosureType | null>(null);
+  const [showDisclosure, setShowDisclosure] = useState(false);
   const disclosureResolverRef = useRef<((agreed: boolean) => void) | null>(null);
 
   // ── Android 배터리 최적화 상세 가이드 모달 상태 관리 ──
@@ -137,21 +137,21 @@ export default function RunnerActiveScreen() {
   // ── Android 배터리 최적화 가이드 접기/펼치기 아코디언 상태 ──
   const [batteryGuideExpanded, setBatteryGuideExpanded] = useState(false);
 
-  const requestDisclosure = useCallback((type: DisclosureType) => {
+  const requestDisclosure = useCallback(() => {
     return new Promise<boolean>((resolve) => {
       disclosureResolverRef.current = resolve;
-      setDisclosureType(type);
+      setShowDisclosure(true);
     });
   }, []);
 
   const handleDisclosureAccept = useCallback(() => {
-    setDisclosureType(null);
+    setShowDisclosure(false);
     disclosureResolverRef.current?.(true);
     disclosureResolverRef.current = null;
   }, []);
 
   const handleDisclosureDecline = useCallback(() => {
-    setDisclosureType(null);
+    setShowDisclosure(false);
     disclosureResolverRef.current?.(false);
     disclosureResolverRef.current = null;
   }, []);
@@ -357,15 +357,20 @@ export default function RunnerActiveScreen() {
   const startTracking = useCallback(async () => {
     if (runStateRef.current !== 'idle') return;
 
-    // 포그라운드 위치 권한 확인
+    // 1. 포그라운드 및 백그라운드 위치 권한 상태 확인
     let fg = await Location.getForegroundPermissionsAsync().catch(() => null);
-    if (fg?.status !== 'granted') {
-      // 명시적 사전 고지 (Google Play Prominent Disclosure 요건 전용 모달)
-      const userAgreed = await requestDisclosure('foreground');
+    let bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
+
+    // 위치 권한이 하나라도 아직 허용되지 않은 경우, 사전 명시적 공개 모달(Google Play Prominent Disclosure) 노출
+    if (fg?.status !== 'granted' || bg?.status !== 'granted') {
+      const userAgreed = await requestDisclosure();
       if (!userAgreed) {
         return;
       }
+    }
 
+    // 2. 포그라운드 권한 요청
+    if (fg?.status !== 'granted') {
       fg = await Location.requestForegroundPermissionsAsync();
       if (fg.status !== 'granted') {
         // canAskAgain=false면 이미 영구 거부되어 시스템 다이얼로그가 더는 안 뜬다.
@@ -386,7 +391,7 @@ export default function RunnerActiveScreen() {
       }
     }
 
-    // 로컬 기록 시작: 이후 들어오는 궤적이 이 row에 적재된다.
+    // 3. 로컬 기록 시작: 이후 들어오는 궤적이 이 row에 적재된다.
     startTimeRef.current = Date.now();
     if (runRecordIdRef.current == null && groupId && runnerId) {
       try {
@@ -401,15 +406,10 @@ export default function RunnerActiveScreen() {
       }
     }
 
-    // 백그라운드 권한: 화면이 꺼져도 위치 전송을 계속하기 위해 필요
+    // 4. 백그라운드 권한: 화면이 꺼져도 위치 전송을 계속하기 위해 필요
     // (Android 11+에서는 시스템 설정 화면이 열림)
-    let bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
     if (bg?.status !== 'granted') {
-      // 권한 요청 전 명시적 사전 고지 (Google Play Prominent Disclosure 필수 문구 포함 모달)
-      const userAgreed = await requestDisclosure('background');
-      if (userAgreed) {
-        bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
-      }
+      bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
     }
 
     // 시간/거리 누적 초기화 후 running 진입 (위치 콜백이 처리되도록 추적 시작 전에 설정)
@@ -788,8 +788,7 @@ export default function RunnerActiveScreen() {
 
       {/* 위치 권한 명시적 공개 모달 (Google Play Prominent Disclosure 요건 충족) */}
       <LocationDisclosureModal
-        visible={disclosureType !== null}
-        type={disclosureType ?? 'foreground'}
+        visible={showDisclosure}
         onAccept={handleDisclosureAccept}
         onDecline={handleDisclosureDecline}
       />
