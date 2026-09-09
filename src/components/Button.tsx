@@ -9,23 +9,81 @@ import {
 } from 'react-native';
 import { Colors, FontSize, Radius, Spacing } from '../constants/theme';
 
-type Variant = 'primary' | 'outline' | 'ghost';
+export type ButtonVariant =
+  | 'default'
+  | 'primary'
+  | 'secondary'
+  | 'destructive'
+  | 'outline'
+  | 'ghost'
+  | 'link';
 
-interface ButtonProps {
+export type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
+
+export interface ButtonProps {
   onPress?: () => void;
   title: string;
-  variant?: Variant;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
   fullWidth?: boolean;
+  children?: React.ReactNode;
 }
 
+const sizeStyles: Record<ButtonSize, ViewStyle> = {
+  default: {
+    height: 48,
+    paddingHorizontal: Spacing[4],
+    borderRadius: Radius.md,
+  },
+  sm: {
+    height: 36,
+    paddingHorizontal: Spacing[3],
+    borderRadius: Radius.sm,
+  },
+  lg: {
+    height: 54,
+    paddingHorizontal: Spacing[6],
+    borderRadius: Radius.lg,
+  },
+  icon: {
+    height: 44,
+    width: 44,
+    paddingHorizontal: 0,
+    borderRadius: Radius.md,
+  },
+};
+
+const textSizeStyles: Record<ButtonSize, TextStyle> = {
+  default: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+  },
+  sm: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+  },
+  lg: {
+    fontSize: FontSize.lg,
+    fontWeight: '800',
+  },
+  icon: {
+    fontSize: FontSize.lg,
+  },
+};
+
+/**
+ * shadcn/ui Button 컴포넌트 (React Native)
+ * www.runmarket.cc 디자인 토큰과 동일한 Amber / Dark Navy 기반.
+ */
 export function Button({
   onPress,
   title,
-  variant = 'primary',
+  variant = 'default',
+  size = 'default',
   loading = false,
   disabled = false,
   style,
@@ -33,6 +91,22 @@ export function Button({
   fullWidth = false,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const effectiveVariant = variant === 'primary' ? 'default' : variant;
+
+  const getSpinnerColor = () => {
+    switch (effectiveVariant) {
+      case 'default':
+        return Colors.navyDark;
+      case 'destructive':
+        return Colors.white;
+      case 'outline':
+      case 'ghost':
+      case 'secondary':
+        return Colors.amber;
+      default:
+        return Colors.amber;
+    }
+  };
 
   return (
     <TouchableOpacity
@@ -40,7 +114,8 @@ export function Button({
       disabled={isDisabled}
       style={[
         styles.base,
-        styles[variant],
+        sizeStyles[size],
+        styles[effectiveVariant],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
         style,
@@ -48,12 +123,18 @@ export function Button({
       activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' ? Colors.navy : Colors.amber}
-        />
+        <ActivityIndicator size="small" color={getSpinnerColor()} />
       ) : (
-        <Text style={[styles.text, styles[`${variant}Text`], textStyle]}>{title}</Text>
+        <Text
+          style={[
+            styles.text,
+            textSizeStyles[size],
+            styles[`${effectiveVariant}Text`],
+            textStyle,
+          ]}
+        >
+          {title}
+        </Text>
       )}
     </TouchableOpacity>
   );
@@ -61,40 +142,87 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 44,
-    borderRadius: Radius.md,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing[4],
+    overflow: 'hidden',
   },
   fullWidth: {
     width: '100%',
   },
-  primary: {
-    backgroundColor: Colors.amber,
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
   disabled: {
     opacity: 0.5,
   },
-  text: {
-    fontSize: FontSize.base,
-    fontWeight: '600',
+
+  // ── shadcn/ui Button Variants ──
+  // Default (RunMarket Brand Amber)
+  default: {
+    backgroundColor: Colors.amber,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  primaryText: {
-    color: Colors.navy,
+  defaultText: {
+    color: Colors.navyDark,
+  },
+
+  // Secondary
+  secondary: {
+    backgroundColor: Colors.navyDark,
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
+  },
+  secondaryText: {
+    color: Colors.white,
+  },
+
+  // Destructive
+  destructive: {
+    backgroundColor: Colors.destructive,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  destructiveText: {
+    color: Colors.white,
+  },
+
+  // Outline
+  outline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
   },
   outlineText: {
     color: Colors.foreground,
   },
+
+  // Ghost
+  ghost: {
+    backgroundColor: 'transparent',
+  },
   ghostText: {
-    color: Colors.mutedForeground,
+    color: Colors.gray400,
+  },
+
+  // Link
+  link: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    height: 'auto',
+  },
+  linkText: {
+    color: Colors.amber,
+    textDecorationLine: 'underline',
+  },
+
+  // ── Text Base ──
+  text: {
+    textAlign: 'center',
+    letterSpacing: -0.2,
   },
 });

@@ -108,6 +108,7 @@ export default function RunnerSetupScreen() {
           title={content.startButton}
           onPress={handleStart}
           loading={loading}
+          size="lg"
           fullWidth
           style={styles.startBtn}
         />
@@ -178,18 +179,26 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   infoCard: {
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.navyDark,
     borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
     padding: Spacing[5],
     alignItems: 'center',
     gap: Spacing[2],
     marginBottom: Spacing[2],
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   infoEmoji: { fontSize: 40 },
   infoTitle: {
     fontSize: FontSize.xl,
     fontWeight: '800',
     color: Colors.amber,
+    letterSpacing: -0.3,
   },
   infoDesc: {
     fontSize: FontSize.sm,
@@ -207,8 +216,10 @@ const styles = StyleSheet.create({
   startBtn: { marginTop: Spacing[2] },
 
   healthNote: {
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.navyDark,
     borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
     padding: Spacing[4],
   },
   healthNoteText: {
@@ -220,18 +231,26 @@ const styles = StyleSheet.create({
   colorLabel: {
     fontSize: FontSize.sm,
     fontWeight: '600',
-    color: Colors.white,
-    marginTop: Spacing[3],
+    color: Colors.foreground,
+    marginTop: Spacing[2],
     marginBottom: Spacing[2],
+    letterSpacing: -0.2,
   },
   colorPickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing[3],
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.navyDark,
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing[4],
     paddingVertical: Spacing[3],
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   colorDot: {
     width: 24,
@@ -246,24 +265,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // 모달
+  // 모달 (shadcn Sheet / Dialog 패턴)
   modalOverlay: {
     flex: 1,
     backgroundColor: Colors.modalBackdrop,
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.navyDark,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: Colors.borderDark,
     padding: Spacing[5],
     gap: Spacing[4],
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
   },
   modalTitle: {
     fontSize: FontSize.lg,
-    fontWeight: '800',
+    fontWeight: '700',
     color: Colors.white,
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   modalDesc: {
     fontSize: FontSize.sm,
@@ -278,13 +307,18 @@ const styles = StyleSheet.create({
     gap: Spacing[3],
   },
   previewMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 2,
     borderColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   previewEmoji: { fontSize: 20 },
   previewHex: {
@@ -300,10 +334,15 @@ const styles = StyleSheet.create({
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: Spacing[3],
+    height: 44,
     borderRadius: Radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalBtnCancel: { backgroundColor: Colors.borderDark },
+  modalBtnCancel: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
+  },
   modalBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
 });

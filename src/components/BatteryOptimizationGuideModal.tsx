@@ -19,7 +19,7 @@ interface BatteryOptimizationGuideModalProps {
 /**
  * Android 10km 이상 장시간 러닝 시 백그라운드 GPS 차단(Doze/LMK) 방지를 위한
  * 배터리 "제한 없음(최적화 제외)" 설정 안내 모달.
- * 사용자가 시스템 설정 내 어디로 들어가야 하는지 구체적인 경로와 단계를 시각적으로 제공합니다.
+ * shadcn/ui Dialog 및 Card 패턴 기반.
  */
 export function BatteryOptimizationGuideModal({
   visible,
@@ -41,33 +41,36 @@ export function BatteryOptimizationGuideModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          {/* 헤더 */}
-          <View style={styles.header}>
-            <View style={styles.iconCircle}>
+        <View style={styles.dialogContent}>
+          {/* Dialog Header */}
+          <View style={styles.dialogHeader}>
+            <View style={styles.iconBadge}>
               <Text style={styles.iconText}>⚡</Text>
             </View>
-            <Text style={styles.title}>장시간 러닝 배터리 설정 안내</Text>
-            <Text style={styles.subtitle}>
+            <Text style={styles.dialogTitle}>장시간 러닝 배터리 설정 안내</Text>
+            <Text style={styles.dialogDescription}>
               화면이 꺼져도 10km 이상 위치 기록이 끊기지 않는 방법
             </Text>
           </View>
 
           <ScrollView
-            style={styles.scrollArea}
-            contentContainerStyle={styles.scrollContent}
+            style={styles.dialogBody}
+            contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* 왜 설정해야 하나요? */}
-            <View style={styles.reasonBox}>
-              <Text style={styles.sectionLabel}>왜 설정이 필요한가요?</Text>
-              <Text style={styles.reasonText}>
-                Android OS는 화면이 꺼진 채로 <Text style={styles.highlightText}>장시간(10km 이상, 약 50분~1시간 이상)</Text> 달릴 때, 배터리를 아끼기 위해 런마켓의 백그라운드 GPS 위치 기록을 절전 상태로 전환하거나 강제로 중단시킬 수 있습니다.
+            {/* shadcn Alert 형태의 사유 고지 박스 */}
+            <View style={styles.alertBox}>
+              <View style={styles.alertTitleRow}>
+                <View style={styles.alertDot} />
+                <Text style={styles.alertTitle}>왜 설정이 필요한가요?</Text>
+              </View>
+              <Text style={styles.alertText}>
+                Android OS는 화면이 꺼진 채로 <Text style={styles.highlightText}>장시간(10km 이상, 50분 이상)</Text> 달릴 때 배터리 절전을 위해 런마켓의 백그라운드 GPS 추적을 강제로 중단시킬 수 있습니다.
               </Text>
             </View>
 
-            {/* 설정 단계 (3 Step 안내) */}
-            <View style={styles.stepSection}>
+            {/* 설정 단계 (3 Step 안내 카드) */}
+            <View style={styles.stepCard}>
               <Text style={styles.sectionLabel}>설정 위치 및 방법 (3단계)</Text>
 
               {/* Step 1 */}
@@ -91,7 +94,7 @@ export function BatteryOptimizationGuideModal({
                 <View style={styles.stepContent}>
                   <Text style={styles.stepTitle}>[배터리] 메뉴 터치</Text>
                   <Text style={styles.stepDesc}>
-                    화면을 조금 내려 <Text style={styles.boldAmber}>'배터리'</Text> (또는 '앱 배터리 사용량') 메뉴를 선택합니다.
+                    화면을 내려 <Text style={styles.boldAmber}>'배터리'</Text> (또는 '앱 배터리 사용량') 메뉴를 선택합니다.
                   </Text>
                 </View>
               </View>
@@ -104,14 +107,14 @@ export function BatteryOptimizationGuideModal({
                 <View style={styles.stepContent}>
                   <Text style={styles.stepTitle}>['제한 없음'] 선택</Text>
                   <Text style={styles.stepDesc}>
-                    기본값 '최적화됨' 대신 <Text style={styles.boldAmber}>'제한 없음'</Text>(또는 최적화 안 함)을 선택하면 완료됩니다.
+                    기본값 대신 <Text style={styles.boldAmber}>'제한 없음'</Text>(또는 최적화 안 함)을 선택하면 완료됩니다.
                   </Text>
                 </View>
               </View>
             </View>
 
-            {/* 기종별 경로 팁 */}
-            <View style={styles.tipBox}>
+            {/* 기종별 경로 팁 카드 */}
+            <View style={styles.tipCard}>
               <Text style={styles.tipTitle}>📱 기기별 메뉴 경로</Text>
               <Text style={styles.tipItem}>
                 • <Text style={styles.boldText}>삼성 갤럭시:</Text> 앱 정보 ➔ <Text style={styles.boldAmber}>배터리</Text> ➔ <Text style={styles.boldAmber}>'제한 없음'</Text>
@@ -122,22 +125,22 @@ export function BatteryOptimizationGuideModal({
             </View>
           </ScrollView>
 
-          {/* 하단 버튼 영역 */}
-          <View style={styles.buttonRow}>
+          {/* Dialog Footer (shadcn Buttons) */}
+          <View style={styles.dialogFooter}>
             <TouchableOpacity
-              style={[styles.button, styles.closeButton]}
+              style={[styles.button, styles.outlineButton]}
               onPress={onClose}
               activeOpacity={0.7}
             >
-              <Text style={styles.closeButtonText}>닫기</Text>
+              <Text style={styles.outlineButtonText}>닫기</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, styles.openSettingsButton]}
+              style={[styles.button, styles.primaryButton]}
               onPress={handleOpenSettings}
               activeOpacity={0.8}
             >
-              <Text style={styles.openSettingsButtonText}>설정 열기</Text>
+              <Text style={styles.primaryButtonText}>설정 열기</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -154,100 +157,131 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing[4],
   },
-  card: {
+  // shadcn Dialog Container
+  dialogContent: {
     width: '100%',
-    maxWidth: 390,
+    maxWidth: 380,
     maxHeight: '88%',
-    backgroundColor: Colors.navy,
-    borderRadius: Radius.xl,
-    padding: Spacing[5],
+    backgroundColor: Colors.navyDark, // #1a2332
+    borderRadius: Radius.lg, // 12
     borderWidth: 1,
-    borderColor: Colors.borderDark,
+    borderColor: Colors.borderDark, // #374151
+    paddingHorizontal: Spacing[5],
+    paddingTop: Spacing[5],
+    paddingBottom: Spacing[4],
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 12,
   },
-  header: {
+  dialogHeader: {
     alignItems: 'center',
     marginBottom: Spacing[3],
   },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 153, 0, 0.15)',
+  iconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 153, 0, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 153, 0, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing[2],
   },
   iconText: {
-    fontSize: 24,
+    fontSize: 22,
   },
-  title: {
+  dialogTitle: {
     fontSize: FontSize.lg,
-    fontWeight: '800',
+    fontWeight: '700',
     color: Colors.white,
     textAlign: 'center',
-    marginBottom: 4,
+    letterSpacing: -0.3,
   },
-  subtitle: {
+  dialogDescription: {
     fontSize: FontSize.xs,
     color: Colors.gray400,
     textAlign: 'center',
+    marginTop: Spacing[1],
   },
-  scrollArea: {
+  dialogBody: {
     maxHeight: 330,
-    marginVertical: Spacing[2],
   },
-  scrollContent: {
+  bodyContent: {
     gap: Spacing[3],
+    paddingVertical: Spacing[1],
   },
-  sectionLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.gray400,
-    marginBottom: Spacing[1],
-  },
-  reasonBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+
+  // shadcn Alert Card
+  alertBox: {
+    backgroundColor: 'rgba(255, 153, 0, 0.08)',
     borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 153, 0, 0.28)',
     padding: Spacing[3],
   },
-  reasonText: {
+  alertTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[2],
+    marginBottom: Spacing[1],
+  },
+  alertDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.amber,
+  },
+  alertTitle: {
     fontSize: FontSize.xs,
-    color: Colors.white,
+    fontWeight: '700',
+    color: Colors.amber,
+    letterSpacing: -0.2,
+  },
+  alertText: {
+    fontSize: FontSize.xs + 0.5,
+    color: '#E2E8F0',
     lineHeight: 18,
   },
   highlightText: {
     fontWeight: '700',
     color: Colors.amber,
   },
-  stepSection: {
-    backgroundColor: 'rgba(255, 153, 0, 0.08)',
+
+  // Step Section Card
+  stepCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     padding: Spacing[3],
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.amber,
     gap: Spacing[3],
+  },
+  sectionLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.gray400,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   stepItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: Spacing[2],
+    gap: Spacing[2.5],
   },
   stepBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: Colors.amber,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   stepBadgeText: {
-    fontSize: FontSize.xs,
+    fontSize: 11,
     fontWeight: '800',
     color: Colors.navyDark,
   },
@@ -255,14 +289,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepTitle: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.xs + 0.5,
     fontWeight: '700',
     color: Colors.white,
     marginBottom: 2,
   },
   stepDesc: {
     fontSize: FontSize.xs,
-    color: Colors.gray400,
+    color: '#94A3B8',
     lineHeight: 17,
   },
   boldText: {
@@ -273,9 +307,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.amber,
   },
-  tipBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+
+  // Tip Card
+  tipCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     padding: Spacing[3],
     gap: Spacing[1],
   },
@@ -287,33 +325,37 @@ const styles = StyleSheet.create({
   },
   tipItem: {
     fontSize: FontSize.xs,
-    color: Colors.gray400,
+    color: '#94A3B8',
     lineHeight: 18,
   },
-  buttonRow: {
+
+  // Dialog Footer
+  dialogFooter: {
     flexDirection: 'row',
     gap: Spacing[2],
-    marginTop: Spacing[3],
+    marginTop: Spacing[4],
   },
   button: {
     flex: 1,
-    paddingVertical: Spacing[3],
+    height: 42,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeButton: {
-    backgroundColor: Colors.borderDark,
+  outlineButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
   },
-  closeButtonText: {
+  outlineButtonText: {
     fontSize: FontSize.sm,
     fontWeight: '600',
     color: Colors.gray400,
   },
-  openSettingsButton: {
+  primaryButton: {
     backgroundColor: Colors.amber,
   },
-  openSettingsButtonText: {
+  primaryButtonText: {
     fontSize: FontSize.sm,
     fontWeight: '700',
     color: Colors.navyDark,
