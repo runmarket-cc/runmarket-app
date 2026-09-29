@@ -18,6 +18,7 @@ import { syncPendingRuns } from '../../src/services/runSync';
 import { HeaderBackButton } from './_layout';
 import { LocationDisclosureModal } from '../../src/components/LocationDisclosureModal';
 import { BatteryOptimizationGuideModal } from '../../src/components/BatteryOptimizationGuideModal';
+import { RunTouchLock } from '../../src/components/RunTouchLock';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -85,6 +86,8 @@ export default function RunnerActiveScreen() {
   // ref는 위치 콜백 클로저에서 최신 상태를 읽기 위함, state는 UI 갱신용.
   const runStateRef = useRef<'idle' | 'running' | 'paused'>('idle');
   const [runState, setRunState] = useState<'idle' | 'running' | 'paused'>('idle');
+  // Touch protection is independent of the running/paused recording state.
+  const [touchLocked, setTouchLocked] = useState(false);
   // 앱 포그라운드/백그라운드 상태 추적 (백그라운드 시 UI 리렌더링 차단용)
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   // 전체 누적 궤적(백그라운드에서 UI 리렌더링 없이 O(1)로 점을 축적하는 버퍼)
@@ -774,6 +777,18 @@ export default function RunnerActiveScreen() {
           </View>
         )}
 
+        {Platform.OS === 'android' && runState !== 'idle' && (
+          <TouchableOpacity
+            style={styles.touchLockBtn}
+            onPress={() => setTouchLocked(true)}
+            accessibilityRole="button"
+            accessibilityLabel="터치 잠금"
+            accessibilityHint="지도와 운동 버튼을 잠급니다. 해제하려면 2초간 길게 누르세요."
+          >
+            <Text style={styles.controlBtnText}>🔒 터치 잠금</Text>
+          </TouchableOpacity>
+        )}
+
         {runState === 'idle' ? (
           <TouchableOpacity
             style={styles.startBtn}
@@ -801,6 +816,10 @@ export default function RunnerActiveScreen() {
           </View>
         )}
       </View>
+
+      {Platform.OS === 'android' && touchLocked && (
+        <RunTouchLock onUnlock={() => setTouchLocked(false)} />
+      )}
 
       {/* 위치 권한 명시적 공개 모달 (Google Play Prominent Disclosure 요건 충족) */}
       <LocationDisclosureModal
@@ -1013,6 +1032,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   controlRow: { flexDirection: 'row', gap: Spacing[3] },
+  touchLockBtn: {
+    minHeight: 48,
+    padding: Spacing[2],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
+    backgroundColor: Colors.navy,
+  },
   controlBtn: {
     flex: 1,
     borderRadius: Radius.lg,
