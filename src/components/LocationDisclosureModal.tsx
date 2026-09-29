@@ -24,7 +24,7 @@ interface LocationDisclosureModalProps {
  * 
  * 구글 필수 요건:
  * 1. '위치 데이터' 명시
- * 2. '앱이 닫혀 있거나 사용 중이 아닐 때도(화면이 꺼져 있을 때도)' 수집 사실 명시
+ * 2. 사용자가 시작한 러닝 중 화면 잠금/다른 앱 사용 시에도 수집한다는 사실 명시
  * 3. 구체적인 사용 목적(러닝 경로 기록, 페이스 측정, 그룹원 실시간 위치 공유) 명시
  * 4. 사용자의 명확한 긍정적 동의(동의 및 계속) 및 거부(취소) 액션 제공
  */
@@ -64,10 +64,10 @@ export function LocationDisclosureModal({
             <View style={styles.alertBox}>
               <View style={styles.alertTitleRow}>
                 <View style={styles.alertDot} />
-                <Text style={styles.alertTitle}>백그라운드 위치 데이터 수집 안내</Text>
+                <Text style={styles.alertTitle}>러닝 중 위치 데이터 수집 안내</Text>
               </View>
               <Text style={styles.alertText}>
-                런마켓은 <Text style={styles.highlightText}>앱이 닫혀 있거나 사용 중이 아닐 때도(화면이 꺼져 있거나 다른 앱을 사용할 때도)</Text> 실시간 러닝 경로 기록, 이동 거리 및 페이스 측정, 그룹 참가자 간의 실시간 위치 공유 기능을 제공하기 위해 <Text style={styles.highlightText}>위치 데이터</Text>를 수집합니다.
+                런마켓은 <Text style={styles.highlightText}>사용자가 시작한 러닝 중에 화면을 잠그거나 다른 앱을 사용하는 동안에도</Text> 실시간 러닝 경로 기록, 이동 거리 및 페이스 측정, 그룹 참가자 간의 실시간 위치 공유 기능을 제공하기 위해 <Text style={styles.highlightText}>위치 데이터</Text>를 수집합니다. 위치 권한은 “앱 사용 중”으로 허용해주세요. 러닝을 종료하면 위치 추적도 종료됩니다.
               </Text>
             </View>
 
