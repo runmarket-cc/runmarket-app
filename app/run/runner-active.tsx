@@ -13,7 +13,7 @@ import { useRunnerSocket } from '../../src/hooks/useRunnerSocket';
 import { useRunnerLockScreen } from '../../src/hooks/useLockScreenActivity';
 import { RunnerListPanel, getRunnerColor } from '../../src/components/RunnerListPanel';
 import { RUN_LOCATION_TASK, setLocationHandler } from '../../src/services/backgroundLocation';
-import { createRun, appendPoint, finishRun } from '../../src/services/runRecordStore';
+import { createRun, appendPoint, finishRun, deleteRun } from '../../src/services/runRecordStore';
 import { syncPendingRuns } from '../../src/services/runSync';
 import { HeaderBackButton } from './_layout';
 import { LocationDisclosureModal } from '../../src/components/LocationDisclosureModal';
@@ -94,7 +94,9 @@ export default function RunnerActiveScreen() {
   // 현재 running 구간이 시작된 시각(ms). running일 때만 유효.
   const segmentStartRef = useRef<number>(0);
   // 위치 구독/백그라운드 추적 핸들 (정리 시 해제).
-  const subRef = useRef<Location.LocationSubscription | null>(null);
+  const mountedRef = useRef(true);
+  const startingRef = useRef(false);
+  const [starting, setStarting] = useState(false);
   const backgroundStartedRef = useRef(false);
 
   // 일시정지를 제외한 현재까지의 경과 시간(ms).
@@ -337,8 +339,6 @@ export default function RunnerActiveScreen() {
 
   // 위치 추적 중지 + 백그라운드 작업 해제 (정지/언마운트 공용)
   const stopLocationTracking = useCallback(() => {
-    subRef.current?.remove();
-    subRef.current = null;
     setLocationHandler(null);
     if (backgroundStartedRef.current) {
       backgroundStartedRef.current = false;
@@ -351,104 +351,62 @@ export default function RunnerActiveScreen() {
   }, []);
 
   // 언마운트 시 추적 정리
-  useEffect(() => stopLocationTracking, [stopLocationTracking]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      disclosureResolverRef.current?.(false);
+      disclosureResolverRef.current = null;
+      stopLocationTracking();
+    };
+  }, [stopLocationTracking]);
 
-  // ── 시작: 권한 요청 → 기록 생성 → GPS 추적 시작 ──
+  // 사용자가 화면에서 시작한 러닝은 사용 중 권한으로 잠금/앱 전환 후에도 추적한다.
   const startTracking = useCallback(async () => {
-    if (runStateRef.current !== 'idle') return;
+    if (runStateRef.current !== 'idle' || startingRef.current) return;
+    startingRef.current = true;
+    setStarting(true);
+    let trackingAttempted = false;
+    let pendingRecordId: number | null = null;
 
-    // 1. 포그라운드 및 백그라운드 위치 권한 상태 확인
-    let fg = await Location.getForegroundPermissionsAsync().catch(() => null);
-    let bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
-
-    // 위치 권한이 하나라도 아직 허용되지 않은 경우, 사전 명시적 공개 모달(Google Play Prominent Disclosure) 노출
-    if (fg?.status !== 'granted' || bg?.status !== 'granted') {
-      const userAgreed = await requestDisclosure();
-      if (!userAgreed) {
-        return;
-      }
-    }
-
-    // 2. 포그라운드 권한 요청
-    if (fg?.status !== 'granted') {
-      fg = await Location.requestForegroundPermissionsAsync();
+    try {
+      let fg = await Location.getForegroundPermissionsAsync();
+      if (!mountedRef.current) return;
       if (fg.status !== 'granted') {
-        // canAskAgain=false면 이미 영구 거부되어 시스템 다이얼로그가 더는 안 뜬다.
-        // 이 경우 앱 설정으로 직접 보내야 사용자가 권한을 복구할 수 있다.
-        Alert.alert(
-          '위치 권한 필요',
-          fg.canAskAgain
-            ? '위치 권한을 허용해야 달리기를 시작할 수 있습니다.'
-            : '위치 권한이 거부되어 있습니다. 설정 > 런마켓에서 위치 접근을 "앱 사용 중"으로 허용해주세요.',
-          fg.canAskAgain
-            ? [{ text: '확인' }]
-            : [
-                { text: '취소', style: 'cancel' },
-                { text: '설정 열기', onPress: () => Linking.openSettings() },
-              ],
-        );
+        const userAgreed = await requestDisclosure();
+        if (!userAgreed || !mountedRef.current) return;
+      }
+
+      // 사용 중 권한만 요청한다.
+      if (fg.status !== 'granted') {
+        fg = await Location.requestForegroundPermissionsAsync();
+        if (!mountedRef.current) return;
+        if (fg.status !== 'granted') {
+          // canAskAgain=false면 이미 영구 거부되어 시스템 다이얼로그가 더는 안 뜬다.
+          // 이 경우 앱 설정으로 직접 보내야 사용자가 권한을 복구할 수 있다.
+          Alert.alert(
+            '위치 권한 필요',
+            fg.canAskAgain
+              ? '위치 권한을 허용해야 달리기를 시작할 수 있습니다.'
+              : '위치 권한이 거부되어 있습니다. 설정 > 런마켓에서 위치 접근을 "앱 사용 중"으로 허용해주세요.',
+            fg.canAskAgain
+              ? [{ text: '확인' }]
+              : [
+                  { text: '취소', style: 'cancel' },
+                  { text: '설정 열기', onPress: () => Linking.openSettings() },
+                ],
+          );
+          return;
+        }
+      }
+
+      // Android의 위치 포그라운드 서비스는 앱이 보이는 상태에서 시작해야 한다.
+      if (!mountedRef.current) return;
+      if (AppState.currentState !== 'active') {
+        Alert.alert('러닝 시작 대기', '앱 화면으로 돌아온 뒤 시작을 다시 눌러주세요.');
         return;
       }
-    }
-
-    // 3. 로컬 기록 시작: 이후 들어오는 궤적이 이 row에 적재된다.
-    startTimeRef.current = Date.now();
-    if (runRecordIdRef.current == null && groupId && runnerId) {
-      try {
-        runRecordIdRef.current = await createRun({
-          groupId,
-          runnerId,
-          color,
-          startedAt: startTimeRef.current,
-        });
-      } catch (e) {
-        console.warn('[RunnerActive] 기록 생성 실패:', e);
-      }
-    }
-
-    // 4. 백그라운드 권한: 화면이 꺼져도 위치 전송을 계속하기 위해 필요
-    // (Android 11+에서는 시스템 설정 화면이 열림)
-    if (bg?.status !== 'granted') {
-      bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
-    }
-
-    // 시간/거리 누적 초기화 후 running 진입 (위치 콜백이 처리되도록 추적 시작 전에 설정)
-    accumulatedMsRef.current = 0;
-    segmentStartRef.current = Date.now();
-    lastCoordRef.current = null;
-    lastPointTsRef.current = 0;
-    paceSecPerKmRef.current = 0;
-    lastLapDistRef.current = 0;
-    lastLapTimeSecRef.current = 0;
-    lastKmFloorRef.current = 0;
-    lapPaceSecPerKmRef.current = 0;
-    lastSendTimeRef.current = 0;
-    distanceRef.current = 0;
-    fullPathRef.current = [];
-    runStateRef.current = 'running';
-    setRunState('running');
-    setElapsed(0);
-    setDistance(0);
-    setPaceSecPerKm(0);
-    setLapPaceSecPerKm(0);
-    setMilestoneNotice(null);
-    if (milestoneTimerRef.current) clearTimeout(milestoneTimerRef.current);
-    setPath([]);
-
-    // Android 배터리 최적화 제한 없음 권장 안내 (10km 이상 장시간 백그라운드 추적 보호)
-    if (Platform.OS === 'android') {
-      SecureStore.getItemAsync('runmarket_battery_opt_guided')
-        .then((guided) => {
-          if (!guided) {
-            setShowBatteryGuide(true);
-            SecureStore.setItemAsync('runmarket_battery_opt_guided', '1').catch(() => {});
-          }
-        })
-        .catch(() => {});
-    }
-
-    if (bg?.status === 'granted') {
-      setLocationHandler((locations) => locations.forEach(handleLocation));
+      trackingAttempted = true;
       await Location.startLocationUpdatesAsync(RUN_LOCATION_TASK, {
         accuracy: Location.Accuracy.BestForNavigation,
         timeInterval: 3000,
@@ -465,26 +423,78 @@ export default function RunnerActiveScreen() {
           killServiceOnDestroy: false,
         },
       });
+
+      if (!mountedRef.current) return;
+
+      // 서비스 시작 실패 시 빈 기록을 남기지 않도록 시작 성공 후 생성한다.
+      startTimeRef.current = Date.now();
+      if (groupId && runnerId) {
+        pendingRecordId = await createRun({
+          groupId, runnerId, color, startedAt: startTimeRef.current,
+        });
+      }
+      if (!mountedRef.current) return;
+      runRecordIdRef.current = pendingRecordId;
       backgroundStartedRef.current = true;
-    } else {
-      // 백그라운드 권한 거부 시 기존 포그라운드 추적으로 폴백.
-      // 설정으로 바로 갈 수 있게 안내(폴백 추적은 아래에서 그대로 시작됨).
-      Alert.alert(
-        '백그라운드 위치 권한',
-        '위치 권한을 "항상 허용"으로 설정하지 않으면 화면이 꺼졌을 때 위치 전송이 중단될 수 있습니다.',
-        [
-          { text: '이대로 진행', style: 'cancel' },
-          { text: '설정 열기', onPress: () => Linking.openSettings() },
-        ],
-      );
-      subRef.current = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 3000,
-          distanceInterval: 3,
-        },
-        handleLocation,
-      );
+      setLocationHandler((locations) => locations.forEach(handleLocation));
+      accumulatedMsRef.current = 0;
+      segmentStartRef.current = startTimeRef.current;
+      lastCoordRef.current = null;
+      lastPointTsRef.current = 0;
+      paceSecPerKmRef.current = 0;
+      lastLapDistRef.current = 0;
+      lastLapTimeSecRef.current = 0;
+      lastKmFloorRef.current = 0;
+      lapPaceSecPerKmRef.current = 0;
+      lastSendTimeRef.current = 0;
+      distanceRef.current = 0;
+      fullPathRef.current = [];
+      runStateRef.current = 'running';
+      setRunState('running');
+      setElapsed(0);
+      setDistance(0);
+      setPaceSecPerKm(0);
+      setLapPaceSecPerKm(0);
+      setMilestoneNotice(null);
+      if (milestoneTimerRef.current) clearTimeout(milestoneTimerRef.current);
+      setPath([]);
+    } catch (error) {
+      console.warn('[RunnerActive] 러닝 시작 실패:', error);
+      if (mountedRef.current) {
+        Alert.alert('러닝 시작 실패', '위치 서비스와 권한을 확인하고 앱 화면에서 다시 시작해주세요.');
+      }
+    } finally {
+      // 시작 요청 중 화면을 나갔거나 실패했다면 늦게 생성된 서비스/기록도 정리한다.
+      if (runStateRef.current === 'idle') {
+        if (trackingAttempted) {
+          try {
+            if (await Location.hasStartedLocationUpdatesAsync(RUN_LOCATION_TASK)) {
+              await Location.stopLocationUpdatesAsync(RUN_LOCATION_TASK);
+            }
+          } catch (error) {
+            console.warn('[RunnerActive] 시작 취소 후 위치 추적 정리 실패:', error);
+          }
+        }
+        if (pendingRecordId != null) {
+          await deleteRun(pendingRecordId).catch((error) => {
+            console.warn('[RunnerActive] 시작 취소 후 기록 정리 실패:', error);
+          });
+        }
+      }
+      startingRef.current = false;
+      if (mountedRef.current) setStarting(false);
+    }
+
+    // 러닝이 시작된 뒤에만 배터리 안내를 표시한다.
+    if (mountedRef.current && runStateRef.current === 'running' && Platform.OS === 'android') {
+      SecureStore.getItemAsync('runmarket_battery_opt_guided')
+        .then((guided) => {
+          if (!guided && mountedRef.current && runStateRef.current === 'running') {
+            setShowBatteryGuide(true);
+            SecureStore.setItemAsync('runmarket_battery_opt_guided', '1').catch(() => {});
+          }
+        })
+        .catch(() => {});
     }
   }, [groupId, runnerId, color, handleLocation, requestDisclosure]);
 
@@ -765,8 +775,14 @@ export default function RunnerActiveScreen() {
         )}
 
         {runState === 'idle' ? (
-          <TouchableOpacity style={styles.startBtn} onPress={startTracking} activeOpacity={0.8}>
-            <Text style={styles.startBtnText}>시작</Text>
+          <TouchableOpacity
+            style={styles.startBtn}
+            onPress={startTracking}
+            disabled={starting}
+            accessibilityState={{ disabled: starting, busy: starting }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.startBtnText}>{starting ? '시작 중…' : '시작'}</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.controlRow}>

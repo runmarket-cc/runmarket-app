@@ -16,7 +16,6 @@ module.exports = {
       appleTeamId: '2M4S6DRRVU',
       infoPlist: {
         NSLocationWhenInUseUsageDescription: '러닝 중 현재 위치를 실시간으로 공유하기 위해 위치 권한이 필요합니다.',
-        NSLocationAlwaysAndWhenInUseUsageDescription: '러닝 중 백그라운드에서도 위치를 공유하기 위해 위치 권한이 필요합니다.',
         ITSAppUsesNonExemptEncryption: false,
         NSSupportsLiveActivities: true,
         NSSupportsLiveActivitiesFrequentUpdates: true,
@@ -83,7 +82,6 @@ module.exports = {
       permissions: [
         'android.permission.ACCESS_FINE_LOCATION',
         'android.permission.ACCESS_COARSE_LOCATION',
-        'android.permission.ACCESS_BACKGROUND_LOCATION',
         'android.permission.POST_NOTIFICATIONS',
         'android.permission.FOREGROUND_SERVICE',
         'android.permission.FOREGROUND_SERVICE_LOCATION',
@@ -123,9 +121,11 @@ module.exports = {
       [
         'expo-location',
         {
-          locationAlwaysAndWhenInUsePermission: '러닝 중 화면이 꺼져 있어도 위치를 공유하기 위해 위치 권한이 필요합니다.',
+          locationWhenInUsePermission: '시작한 러닝의 경로 기록과 실시간 위치 공유를 위해 위치 권한이 필요합니다. 러닝 중에는 화면이 꺼져도 계속됩니다.',
+          locationAlwaysAndWhenInUsePermission: false,
+          locationAlwaysPermission: false,
           isIosBackgroundLocationEnabled: true,
-          isAndroidBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: false,
           isAndroidForegroundServiceEnabled: true,
         },
       ],
