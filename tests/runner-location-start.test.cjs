@@ -61,6 +61,8 @@ function screen(options = {}) {
     '../../src/hooks/useRunnerSocket': { useRunnerSocket: () => ({ sendLocation: (p) => calls.sent.push(p), otherRunners: new Map() }) },
     '../../src/hooks/useLockScreenActivity': { useRunnerLockScreen() {} },
     '../../src/components/RunnerListPanel': {},
+    '../../src/components/RunTouchLock': { RunTouchLock: 'RunTouchLock' },
+    '../../src/constants/courses': { getCourseByGroupId: () => null },
     '../../src/services/backgroundLocation': { RUN_LOCATION_TASK: 'run', setLocationHandler: (fn) => { handler = fn; } },
     '../../src/services/runRecordStore': {
       createRun: async () => { calls.records++; if (options.recordGate) await options.recordGate.promise; if (options.failRecord) throw Error('db failed'); return 42; },
