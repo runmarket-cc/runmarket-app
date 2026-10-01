@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       app_version:
-        description: '배포할 앱 버전 (예: 1.0.1, 비워두면 기본값 유지)'
+        description: '배포할 앱 버전 (예: 1.1.10, 비워두면 기존 릴리스 태그와 실행 번호로 자동 생성)'
         required: false
         default: ''
         type: string
@@ -51,6 +51,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -61,6 +63,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify release version handling
+        run: node tests/release-version.test.cjs
+
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
@@ -69,15 +74,26 @@ jobs:
 
       - name: Determine and Apply App Version
         id: version
+        env:
+          REQUESTED_APP_VERSION: ${{ inputs.app_version }}
+          BUILD_PROFILE: ${{ inputs.profile }}
+          BUILD_PLATFORM: ${{ inputs.platform }}
+          AUTO_SUBMIT: ${{ inputs.auto_submit }}
         run: |
-          if [ -n "${{ inputs.app_version }}" ]; then
-            FINAL_VERSION="${{ inputs.app_version }}"
-          else
-            FINAL_VERSION="1.0.${{ github.run_number }}"
+          set -euo pipefail
+          if [ "${GITHUB_RUN_ATTEMPT:-1}" -gt 1 ]; then
+            echo "::error::Re-running keeps the same app version. Start a new workflow run instead."
+            exit 1
           fi
+          if [ "$BUILD_PROFILE" = production ] && [ "$BUILD_PLATFORM" != android ] && [ "$AUTO_SUBMIT" = true ]; then
+            export GUARD_IOS_SUBMISSION=true
+          fi
+          FINAL_VERSION="$(node scripts/select-release-version.cjs)"
           echo "Final app version: $FINAL_VERSION"
-          echo "version=$FINAL_VERSION" >> $GITHUB_OUTPUT
-          npm version $FINAL_VERSION --no-git-tag-version --allow-same-version
+          echo "version=$FINAL_VERSION" >> "$GITHUB_OUTPUT"
+          npm version "$FINAL_VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
+          # Persist the version in the uploaded profile so remote prebuild sees it too.
+          APP_VERSION="$FINAL_VERSION" node scripts/prepare-eas-version.cjs
 
       - name: Run EAS Build & Auto-Submit
         run: |

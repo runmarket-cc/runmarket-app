@@ -1,5 +1,5 @@
-const buildPatch = process.env.GITHUB_RUN_NUMBER || '1';
-const defaultVersion = `1.0.${buildPatch}`;
+// package.json is included in the EAS upload; GitHub runner variables are not.
+const defaultVersion = require('./package.json').version;
 
 module.exports = {
   expo: {
