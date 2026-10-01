@@ -69,7 +69,7 @@ export function useSpectatorSocket({ groupId, token, onOpen, onClose, onError, o
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
 
-    const url = `${WS_BASE}/ws/group/${groupId}?token=${token}`;
+    const url = `${WS_BASE}/ws/group/${encodeURIComponent(groupId)}?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 

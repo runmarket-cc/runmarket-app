@@ -25,8 +25,9 @@ function screen(options = {}) {
     createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
     useRef: (value) => ({ current: value }),
     useState: (value) => {
-      const state = { value }; states.push(state);
-      return [value, (next) => { state.value = typeof next === 'function' ? next(state.value) : next; }];
+      const initialValue = value === 'idle' && options.initialRunState ? options.initialRunState : value;
+      const state = { value: initialValue }; states.push(state);
+      return [initialValue, (next) => { state.value = typeof next === 'function' ? next(state.value) : next; }];
     },
     useCallback: (fn) => fn,
     useEffect: (fn) => { const cleanup = fn(); if (cleanup) cleanups.push(cleanup); },
@@ -34,8 +35,9 @@ function screen(options = {}) {
   const mocks = {
     react,
     'react-native': {
-      View: 'View', Text: 'Text', TouchableOpacity: 'Button',
+      View: 'View', Text: 'Text', TouchableOpacity: 'Button', Modal: 'Modal', Pressable: 'Pressable', ScrollView: 'ScrollView',
       StyleSheet: { create: (styles) => styles }, Platform: { OS: options.os || 'android' },
+      useWindowDimensions: () => ({ height: 740, width: 360, fontScale: 1 }),
       AppState: appState, Alert: { alert: (...args) => calls.alerts.push(args) },
       Linking: { openSettings() {} }, Vibration: { vibrate() {} },
     },
@@ -60,7 +62,7 @@ function screen(options = {}) {
     '../../src/constants/theme': { Colors: {}, FontSize: {}, Spacing: {}, Radius: {} },
     '../../src/hooks/useRunnerSocket': { useRunnerSocket: () => ({ sendLocation: (p) => calls.sent.push(p), otherRunners: new Map() }) },
     '../../src/hooks/useLockScreenActivity': { useRunnerLockScreen() {} },
-    '../../src/components/RunnerListPanel': {},
+    '../../src/components/RunnerListPanel': { RunnerListPanel: 'RunnerListPanel' },
     '../../src/components/RunTouchLock': { RunTouchLock: 'RunTouchLock' },
     '../../src/constants/courses': { getCourseByGroupId: () => null },
     '../../src/services/backgroundLocation': { RUN_LOCATION_TASK: 'run', setLocationHandler: (fn) => { handler = fn; } },
@@ -84,10 +86,22 @@ function screen(options = {}) {
     if (predicate(node)) return node;
     return (node.children || []).flat(Infinity).map((child) => find(child, predicate)).find(Boolean);
   };
-  const start = find(tree, (n) => n.type === 'Button' && n.props.accessibilityState?.busy === false).props.onPress;
+  const start = find(tree, (n) => n.type === 'Button' && n.props.accessibilityState?.busy === false)?.props.onPress;
   const disclosure = find(tree, (n) => n.type === 'Disclosure').props;
-  return { calls, start, disclosure, appState, running: () => states.some((s) => s.value === 'running'), unmount: () => cleanups.forEach((fn) => fn()), location: (point) => handler?.([point]) };
+  return { tree, find, calls, start, disclosure, appState, running: () => states.some((s) => s.value === 'running'), unmount: () => cleanups.forEach((fn) => fn()), location: (point) => handler?.([point]) };
 }
+
+test('both platforms show the compact runner controls, while touch lock stays Android-only', () => {
+  for (const os of ['android', 'ios']) {
+    const s = screen({ os, initialRunState: 'running' });
+    assert.ok(s.find(s.tree, (node) => node.props?.accessibilityLabel?.startsWith('함께 달리는 러너')));
+    for (const label of ['운동 시간', '달린 거리', '현재 1km', '평균 페이스']) {
+      assert.ok(s.find(s.tree, (node) => node.props?.label === label), `${os}: ${label}`);
+    }
+    assert.equal(Boolean(s.find(s.tree, (node) => node.props?.accessibilityLabel === '터치 잠금')), os === 'android');
+    s.unmount();
+  }
+});
 
 for (const os of ['android', 'ios']) {
   test(`${os}: when-in-use starts tracking and forwards location after app backgrounding`, async () => {

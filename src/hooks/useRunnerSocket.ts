@@ -44,7 +44,7 @@ export function useRunnerSocket({ runnerId, token, onOpen, onClose, onError }: O
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
 
-    const url = `${WS_BASE}/ws/runner/${runnerId}?token=${token}`;
+    const url = `${WS_BASE}/ws/runner/${encodeURIComponent(runnerId)}?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 

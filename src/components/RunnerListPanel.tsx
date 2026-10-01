@@ -34,15 +34,16 @@ interface Props {
   onPressRunner: (runner: RunnerInfo) => void;
   title?: string;
   description?: string;
+  collapsible?: boolean;
 }
 
 /** 러너 목록 패널 — 토글 가능, 클릭 시 onPressRunner 호출 */
-export function RunnerListPanel({ runners, onPressRunner, title, description }: Props) {
+export function RunnerListPanel({ runners, onPressRunner, title, description, collapsible = true }: Props) {
   const [show, setShow] = useState(true);
 
   return (
     <>
-      <TouchableOpacity style={styles.toggle} onPress={() => setShow((v) => !v)}>
+      {collapsible && <TouchableOpacity style={styles.toggle} onPress={() => setShow((v) => !v)}>
         <View style={styles.toggleInner}>
           {title && <Text style={styles.toggleTitle}>{title}</Text>}
           <Text style={styles.toggleText}>
@@ -52,16 +53,16 @@ export function RunnerListPanel({ runners, onPressRunner, title, description }: 
         {description && show && (
           <Text style={styles.toggleDesc}>{description}</Text>
         )}
-      </TouchableOpacity>
+      </TouchableOpacity>}
 
-      {show && (
+      {(!collapsible || show) && (
         runners.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>함께 달리는 러너가 없습니다.</Text>
             <Text style={styles.emptySubText}>러너가 참여하면 자동으로 표시됩니다.</Text>
           </View>
         ) : (
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView style={collapsible ? styles.list : styles.sheetList} showsVerticalScrollIndicator={!collapsible}>
             {runners.map((runner) => (
               <TouchableOpacity
                 key={runner.runnerId}
@@ -141,6 +142,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing[1],
   },
   list: { maxHeight: 180 },
+  sheetList: { flex: 1 },
   emptyBox: {
     alignItems: 'center',
     paddingVertical: Spacing[4],
