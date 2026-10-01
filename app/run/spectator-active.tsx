@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Platform, Alert,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { useSpectatorSocket } from '../../src/hooks/useSpectatorSocket';
 import { useSpectatorLockScreen } from '../../src/hooks/useLockScreenActivity';
 import { RunnerListPanel, getRunnerColor, type RunnerInfo } from '../../src/components/RunnerListPanel';
 import { HeaderBackButton } from './_layout';
+import { getCourseByGroupId } from '../../src/constants/courses';
 
 export default function SpectatorActiveScreen() {
   const { groupId, socketToken } = useLocalSearchParams<{
@@ -24,6 +25,8 @@ export default function SpectatorActiveScreen() {
   const [connected, setConnected] = useState(false);
   const [groupCopied, setGroupCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const course = getCourseByGroupId(groupId);
 
   const handleCopyGroupId = useCallback(async () => {
     if (!groupId) return;
@@ -53,14 +56,22 @@ export default function SpectatorActiveScreen() {
   );
 
   useEffect(() => {
-    if (centeredRef.current || runnerList.length === 0) return;
-    const first = runnerList[0];
-    mapRef.current?.animateCamera(
-      { center: { latitude: first.lat, longitude: first.lng }, zoom: 15 },
-      { duration: 800 },
-    );
-    centeredRef.current = true;
-  }, [runnerList]);
+    if (centeredRef.current) return;
+    if (course && course.startPoint) {
+      mapRef.current?.animateCamera(
+        { center: { latitude: course.startPoint.latitude, longitude: course.startPoint.longitude }, zoom: 13 },
+        { duration: 800 },
+      );
+      centeredRef.current = true;
+    } else if (runnerList.length > 0) {
+      const first = runnerList[0];
+      mapRef.current?.animateCamera(
+        { center: { latitude: first.lat, longitude: first.lng }, zoom: 15 },
+        { duration: 800 },
+      );
+      centeredRef.current = true;
+    }
+  }, [course, runnerList]);
 
   // 러너 수 / 연결 상태 변경 시 잠금 화면 업데이트
   useEffect(() => {
@@ -89,12 +100,40 @@ export default function SpectatorActiveScreen() {
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={{
-          latitude: 37.5665,
-          longitude: 126.978,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitude: course?.startPoint.latitude ?? 37.5665,
+          longitude: course?.startPoint.longitude ?? 126.978,
+          latitudeDelta: course ? 0.06 : 0.05,
+          longitudeDelta: course ? 0.06 : 0.05,
         }}
       >
+        {/* 안양천 코스 가이드 라인 (배경 그림자 + 메인 라인) */}
+        {course && (
+          <>
+            <Polyline
+              coordinates={course.path}
+              strokeColor="rgba(99, 102, 241, 0.25)"
+              strokeWidth={8}
+            />
+            <Polyline
+              coordinates={course.path}
+              strokeColor="#4F46E5"
+              strokeWidth={4}
+            />
+            {course.startPoint && (
+              <Marker
+                coordinate={course.startPoint}
+                title="출발/도착지"
+                description={course.name}
+              >
+                <View style={styles.startMarker}>
+                  <Text style={styles.startMarkerText}>🚩</Text>
+                </View>
+              </Marker>
+            )}
+          </>
+        )}
+
+        {/* 러너 마커들 */}
         {runnerList.map((runner) => {
           const paceText = runner.pace === '--:--' ? '-' : `${runner.pace}/km`;
           const lapPaceText = runner.lapPace && runner.lapPace !== '--:--' ? `${runner.lapPace}/km` : paceText;
@@ -119,6 +158,15 @@ export default function SpectatorActiveScreen() {
           {connected ? `● 라이브 · ${runnerList.length}명` : '● 연결 중...'}
         </Text>
       </View>
+
+      {/* 코스 정보 배지 */}
+      {course && (
+        <View style={[styles.courseBadge, { top: insets.top + Spacing[3] + 34 }]}>
+          <Text style={styles.courseBadgeText}>
+            🏁 {course.name} ({course.totalDistanceKm}km)
+          </Text>
+        </View>
+      )}
 
       {/* 하단 패널 */}
       <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 32 : Spacing[4]) }]}>
@@ -194,4 +242,26 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
   },
   stopBtnText: { color: Colors.white, fontSize: FontSize.sm, fontWeight: '700' },
+
+  startMarker: {
+    backgroundColor: Colors.navy,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: Colors.white,
+  },
+  startMarkerText: { fontSize: 16 },
+
+  courseBadge: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    paddingHorizontal: Spacing[3],
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: '#6366F1',
+    zIndex: 10,
+  },
+  courseBadgeText: { color: Colors.white, fontSize: FontSize.xs, fontWeight: '700' },
 });

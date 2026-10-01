@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Linking, AppState, Vibration, type AppStateStatus,
+  View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Linking, AppState, Vibration, Modal, Pressable, ScrollView, useWindowDimensions, type AppStateStatus,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Clipboard from 'expo-clipboard';
@@ -19,6 +19,7 @@ import { HeaderBackButton } from './_layout';
 import { LocationDisclosureModal } from '../../src/components/LocationDisclosureModal';
 import { BatteryOptimizationGuideModal } from '../../src/components/BatteryOptimizationGuideModal';
 import { RunTouchLock } from '../../src/components/RunTouchLock';
+import { getCourseByGroupId } from '../../src/constants/courses';
 
 const LOCATION_INTERVAL_MS = 3000; // 3초마다 위치 전송
 
@@ -63,6 +64,10 @@ export default function RunnerActiveScreen() {
   }>();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight, fontScale } = useWindowDimensions();
+  const [runnersVisible, setRunnersVisible] = useState(false);
+
+  const course = getCourseByGroupId(groupId);
 
   const mapRef = useRef<MapView>(null);
   const centeredRef = useRef(false);
@@ -139,8 +144,6 @@ export default function RunnerActiveScreen() {
 
   // ── Android 배터리 최적화 상세 가이드 모달 상태 관리 ──
   const [showBatteryGuide, setShowBatteryGuide] = useState(false);
-  // ── Android 배터리 최적화 가이드 접기/펼치기 아코디언 상태 ──
-  const [batteryGuideExpanded, setBatteryGuideExpanded] = useState(false);
 
   const requestDisclosure = useCallback(() => {
     return new Promise<boolean>((resolve) => {
@@ -609,9 +612,35 @@ export default function RunnerActiveScreen() {
           initialRegion={
             currentCoord
               ? { ...currentCoord, latitudeDelta: 0.05, longitudeDelta: 0.05 }
-              : { latitude: 37.5665, longitude: 126.978, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+              : course?.startPoint
+                ? { ...course.startPoint, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+                : { latitude: 37.5665, longitude: 126.978, latitudeDelta: 0.05, longitudeDelta: 0.05 }
           }
         >
+          {/* 안양천 코스 가이드 라인 (바닥에 배치) */}
+          {course && (
+            <>
+              <Polyline
+                coordinates={course.path}
+                strokeColor="rgba(99, 102, 241, 0.25)"
+                strokeWidth={8}
+              />
+              <Polyline
+                coordinates={course.path}
+                strokeColor="#4F46E5"
+                strokeWidth={3}
+                lineDashPattern={[6, 4]}
+              />
+              {course.startPoint && (
+                <Marker coordinate={course.startPoint} title="출발/도착지" description={course.name}>
+                  <View style={styles.startMarker}>
+                    <Text style={styles.startMarkerText}>🚩</Text>
+                  </View>
+                </Marker>
+              )}
+            </>
+          )}
+
           {path.length > 1 && (
             <Polyline coordinates={path} strokeColor={Colors.amber} strokeWidth={4} />
           )}
@@ -656,7 +685,7 @@ export default function RunnerActiveScreen() {
           runState === 'idle' ? styles.statusDisconnected
             : runState === 'paused' ? styles.statusPaused
               : connected ? styles.statusConnected : styles.statusDisconnected,
-          { top: insets.top + Spacing[3] },
+          { top: Spacing[3] },
         ]}
       >
         <Text style={styles.statusText}>
@@ -668,7 +697,7 @@ export default function RunnerActiveScreen() {
 
       {/* 1km 마일스톤 돌파 HUD 배너 */}
       {milestoneNotice && (
-        <View style={[styles.milestoneBanner, { top: insets.top + Spacing[3] + 36 }]}>
+        <View style={[styles.milestoneBanner, { top: Spacing[3] + 36 }]}>
           <Text style={styles.milestoneIcon}>🏁</Text>
           <View style={styles.milestoneContent}>
             <Text style={styles.milestoneTitle}>{milestoneNotice.km}km 완료!</Text>
@@ -679,115 +708,41 @@ export default function RunnerActiveScreen() {
         </View>
       )}
 
-      {/* 다른 러너 목록 패널 */}
-      {otherRunnerList.length > 0 && (
-        <View style={styles.runnerPanel}>
-          <RunnerListPanel
-            title="함께 달리는 러너"
-            description="러너를 탭하면 해당 위치로 지도가 이동합니다."
-            runners={otherRunnerList}
-            onPressRunner={(runner) => mapRef.current?.animateCamera(
-              { center: { latitude: runner.lat, longitude: runner.lng }, zoom: 16 },
-              { duration: 600 },
-            )}
-          />
+      {/* 안양천 코스 정보 배지 */}
+      {course && !milestoneNotice && (
+        <View style={[styles.courseBadge, { top: Spacing[3] + 36 }]}>
+          <Text style={styles.courseBadgeText}>
+            🏁 {course.name} ({course.totalDistanceKm}km)
+          </Text>
         </View>
       )}
 
-      {/* 통계 패널 (2x2 그리드) */}
-      <View style={[styles.statsPanel, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 32 : Spacing[4]) }]}>
-        <View style={styles.statsGrid}>
-          <View style={styles.statsRow}>
-            <StatBox label="운동 시간" value={formatTime(elapsed)} />
-            <StatBox label="달린 거리" value={`${distance.toFixed(2)} km`} />
+      {/* 지도는 주 콘텐츠, 운동 정보는 작은 하단 컨트롤로 유지한다. */}
+      <View style={[styles.statsPanel, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <ScrollView style={styles.summaryScroll} contentContainerStyle={styles.summaryContent}>
+          <View style={[styles.statsRow, fontScale > 1.3 && styles.statsRowLargeText]}>
+            <StatBox label="운동 시간" value={formatTime(elapsed)} largeText={fontScale > 1.3} />
+            <StatBox label="달린 거리" value={distance.toFixed(2)} unit="km" largeText={fontScale > 1.3} />
+            <StatBox label={`현재 ${Math.floor(distance) + 1}km`} value={formatPace(lapPaceSecPerKm)} unit="/km" highlight largeText={fontScale > 1.3} />
+            <StatBox label="평균 페이스" value={formatPace(paceSecPerKm)} unit="/km" largeText={fontScale > 1.3} />
           </View>
-          <View style={styles.statsRow}>
-            <StatBox
-              label={`현재 ${Math.floor(distance) + 1}km 페이스`}
-              value={`${formatPace(lapPaceSecPerKm)} /km`}
-              highlight
-            />
-            <StatBox label="전체 평균 페이스" value={`${formatPace(paceSecPerKm)} /km`} />
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.metaRow} onPress={handleCopyGroupId} activeOpacity={0.6}>
-          <Text style={styles.metaText}>
-            {groupCopied ? '그룹 코드가 복사되었습니다 ✓' : `그룹 ${groupId} · ${runnerId}`}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Android 전용: 10km+ 장시간 러닝 배터리 최적화 안내 (접이식 아코디언) */}
-        {Platform.OS === 'android' && runState === 'idle' && (
-          <View style={styles.batteryGuideCard}>
+          <View style={styles.toolsRow}>
             <TouchableOpacity
-              style={styles.batteryGuideHeader}
-              onPress={() => setBatteryGuideExpanded((prev) => !prev)}
-              activeOpacity={0.7}
+              style={styles.runnersChip}
+              onPress={() => setRunnersVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`함께 달리는 러너 ${otherRunnerList.length}명 보기`}
+              accessibilityState={{ expanded: runnersVisible }}
             >
-              <View style={styles.batteryGuideHeaderLeft}>
-                <Text style={styles.batteryGuideIcon}>⚡</Text>
-                <Text style={styles.batteryGuideTitle}>10km+ 러닝 화면 꺼짐 방지 설정</Text>
-              </View>
-              <View style={styles.batteryGuideToggleBadge}>
-                <Text style={styles.batteryGuideToggleText}>
-                  {batteryGuideExpanded ? '접기 ▲' : '설명 보기 ▼'}
-                </Text>
-              </View>
+              <Text style={styles.runnersChipText}>함께 달리는 러너 · {otherRunnerList.length}  ⌃</Text>
             </TouchableOpacity>
-
-            {batteryGuideExpanded && (
-              <View style={styles.batteryGuideBody}>
-                <Text style={styles.batteryGuideDesc}>
-                  화면이 꺼진 상태로 10km 이상(약 50분+) 달릴 때, Android 절전 모드로 인해 위치 기록이 중단되는 것을 방지합니다.
-                </Text>
-
-                {/* 3단계 경로 가이드 */}
-                <View style={styles.batteryGuideSteps}>
-                  <Text style={styles.batteryGuideStepItem}>
-                    ① <Text style={styles.boldWhite}>아래 [설정 열기]</Text> 터치 (앱 정보로 이동)
-                  </Text>
-                  <Text style={styles.batteryGuideStepItem}>
-                    ② <Text style={styles.boldAmber}>[배터리]</Text> (또는 앱 배터리 사용량) 메뉴 선택
-                  </Text>
-                  <Text style={styles.batteryGuideStepItem}>
-                    ③ <Text style={styles.boldAmber}>['제한 없음']</Text> (최적화 제외) 선택
-                  </Text>
-                </View>
-
-                {/* 버튼 영역 */}
-                <View style={styles.batteryGuideActionRow}>
-                  <TouchableOpacity
-                    style={styles.batteryGuideOpenBtn}
-                    onPress={() => Linking.openSettings()}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.batteryGuideOpenBtnText}>설정 바로가기</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.batteryGuideModalBtn}
-                    onPress={() => setShowBatteryGuide(true)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.batteryGuideModalBtnText}>자세한 가이드 팝업 ›</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+            {Platform.OS === 'android' && runState === 'idle' && (
+              <TouchableOpacity style={styles.guideChip} onPress={() => setShowBatteryGuide(true)} accessibilityRole="button">
+                <Text style={styles.guideChipText}>배터리 안내</Text>
+              </TouchableOpacity>
             )}
           </View>
-        )}
-
-        {Platform.OS === 'android' && runState !== 'idle' && (
-          <TouchableOpacity
-            style={styles.touchLockBtn}
-            onPress={() => setTouchLocked(true)}
-            accessibilityRole="button"
-            accessibilityLabel="터치 잠금"
-            accessibilityHint="지도와 운동 버튼을 잠급니다. 해제하려면 2초간 길게 누르세요."
-          >
-            <Text style={styles.controlBtnText}>🔒 터치 잠금</Text>
-          </TouchableOpacity>
-        )}
+        </ScrollView>
 
         {runState === 'idle' ? (
           <TouchableOpacity
@@ -801,6 +756,17 @@ export default function RunnerActiveScreen() {
           </TouchableOpacity>
         ) : (
           <View style={styles.controlRow}>
+            {Platform.OS === 'android' && (
+              <TouchableOpacity
+                style={styles.touchLockBtn}
+                onPress={() => setTouchLocked(true)}
+                accessibilityRole="button"
+                accessibilityLabel="터치 잠금"
+                accessibilityHint="지도와 운동 버튼을 잠급니다. 해제하려면 2초간 길게 누르세요."
+              >
+                <Text style={styles.controlBtnText}>잠금</Text>
+              </TouchableOpacity>
+            )}
             {runState === 'running' ? (
               <TouchableOpacity style={[styles.controlBtn, styles.pauseBtn]} onPress={pauseTracking} activeOpacity={0.8}>
                 <Text style={styles.controlBtnText}>일시정지</Text>
@@ -816,6 +782,42 @@ export default function RunnerActiveScreen() {
           </View>
         )}
       </View>
+
+      <Modal
+        visible={runnersVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRunnersVisible(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <Pressable style={styles.sheetDismiss} onPress={() => setRunnersVisible(false)} accessibilityRole="button" accessibilityLabel="러너 목록 닫기" />
+          <View style={[styles.runnerSheet, { height: windowHeight * 0.5, paddingBottom: Math.max(insets.bottom, 8) }]} accessibilityViewIsModal>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>함께 달리는 러너 · {otherRunnerList.length}</Text>
+              <TouchableOpacity style={styles.sheetClose} onPress={() => setRunnersVisible(false)} accessibilityRole="button" accessibilityLabel="러너 목록 닫기">
+                <Text style={styles.sheetCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.metaRow} onPress={handleCopyGroupId} accessibilityRole="button" accessibilityLabel="그룹 코드 복사">
+              <Text style={styles.metaText} numberOfLines={1}>
+                {groupCopied ? '그룹 코드가 복사되었습니다 ✓' : `그룹 ${groupId} · ${runnerId}  ⧉`}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.sheetHint}>러너를 선택하면 지도로 돌아가 위치를 보여드려요.</Text>
+            <RunnerListPanel
+              runners={otherRunnerList}
+              collapsible={false}
+              onPressRunner={(runner) => {
+                setRunnersVisible(false);
+                mapRef.current?.animateCamera(
+                  { center: { latitude: runner.lat, longitude: runner.lng }, zoom: 16 },
+                  { duration: 600 },
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {Platform.OS === 'android' && touchLocked && (
         <RunTouchLock onUnlock={() => setTouchLocked(false)} />
@@ -839,19 +841,20 @@ export default function RunnerActiveScreen() {
   );
 }
 
-function StatBox({
-  label,
-  value,
-  highlight = false,
-}: {
+function StatBox({ label, value, unit, highlight = false, largeText = false }: {
   label: string;
   value: string;
+  unit?: string;
   highlight?: boolean;
+  largeText?: boolean;
 }) {
   return (
-    <View style={styles.statBox}>
-      <Text style={[styles.statLabel, highlight && styles.statLabelHighlight]}>{label}</Text>
-      <Text style={[styles.statValue, highlight && styles.statValueHighlight]}>{value}</Text>
+    <View style={[styles.statBox, largeText && styles.statBoxLargeText]} accessible accessibilityLabel={`${label} ${value} ${unit ?? ''}`}>
+      <Text style={[styles.statLabel, highlight && styles.statLabelHighlight]} numberOfLines={1}>{label}</Text>
+      <Text style={[styles.statValue, highlight && styles.statValueHighlight]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        {value}
+      </Text>
+      <Text style={styles.statUnit}>{unit ?? '분:초'}</Text>
     </View>
   );
 }
@@ -946,71 +949,51 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.white,
   },
-  runnerPanel: {
-    backgroundColor: Colors.navyDark,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderDark,
-    maxHeight: 240,
-  },
   myMarkerText: { fontSize: 18 },
 
   statsPanel: {
+    maxHeight: '45%',
+    flexShrink: 0,
     backgroundColor: Colors.navyDark,
     borderTopWidth: 1,
     borderTopColor: Colors.borderDark,
-    paddingTop: Spacing[4],
-    paddingHorizontal: Spacing[4],
-    gap: Spacing[3],
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    paddingHorizontal: 12,
+    gap: 6,
   },
-  statsGrid: {
-    gap: Spacing[2],
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing[2],
-  },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    paddingVertical: Spacing[2.5],
-    paddingHorizontal: Spacing[2],
-    borderRadius: Radius.md,
-    gap: 2,
-  },
-  statLabel: {
-    fontSize: FontSize.xs,
-    color: Colors.gray400,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  statLabelHighlight: {
-    color: Colors.amber,
-  },
-  statValue: {
-    fontSize: FontSize.xl,
-    fontWeight: '800',
-    color: Colors.white,
-  },
-  statValueHighlight: {
-    color: Colors.amber,
-  },
-  metaRow: { alignItems: 'center' },
-  metaText: { fontSize: FontSize.xs, color: Colors.mutedForeground },
+  summaryScroll: { flexShrink: 1 },
+  summaryContent: { gap: 4 },
+  statsRow: { flexDirection: 'row', paddingVertical: 4 },
+  statsRowLargeText: { flexWrap: 'wrap' },
+  statBox: { flex: 1, minWidth: 0, alignItems: 'center', gap: 2 },
+  statBoxLargeText: { flexBasis: '50%', flexGrow: 0, flexShrink: 0, paddingVertical: 4 },
+  statLabel: { fontSize: 11, color: Colors.gray400, fontWeight: '500' },
+  statLabelHighlight: { color: Colors.amber },
+  statValue: { fontSize: 19, fontWeight: '700', color: Colors.white, fontVariant: ['tabular-nums'] },
+  statValueHighlight: { color: Colors.amber },
+  statUnit: { fontSize: 10, color: Colors.gray400 },
+  toolsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  runnersChip: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, backgroundColor: Colors.navy },
+  runnersChipText: { fontSize: 12, fontWeight: '600', color: Colors.white },
+  guideChip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+  guideChipText: { fontSize: 12, color: Colors.amber },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.28)' },
+  sheetDismiss: { flex: 1 },
+  runnerSheet: { backgroundColor: Colors.navyDark, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 16, paddingRight: 8, paddingTop: 8 },
+  sheetTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: Colors.white },
+  sheetClose: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  sheetCloseText: { fontSize: 20, color: Colors.white },
+  sheetHint: { fontSize: 12, color: Colors.gray400, paddingHorizontal: 16, paddingBottom: 12 },
+  metaRow: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' },
+  metaText: { fontSize: 12, color: Colors.gray400 },
 
   startBtn: {
     backgroundColor: Colors.amber,
     borderRadius: Radius.lg,
-    height: 54,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Colors.black,
@@ -1031,8 +1014,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.2,
   },
-  controlRow: { flexDirection: 'row', gap: Spacing[3] },
+  controlRow: { flexDirection: 'row', gap: 8 },
   touchLockBtn: {
+    flex: 1,
     minHeight: 48,
     padding: Spacing[2],
     alignItems: 'center',
@@ -1045,7 +1029,7 @@ const styles = StyleSheet.create({
   controlBtn: {
     flex: 1,
     borderRadius: Radius.lg,
-    height: 50,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Colors.black,
@@ -1065,101 +1049,26 @@ const styles = StyleSheet.create({
   stopBtn: {
     backgroundColor: Colors.destructive,
   },
-  controlBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
-  batteryGuideCard: {
-    backgroundColor: 'rgba(255, 153, 0, 0.08)',
-    borderRadius: Radius.md,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.amber,
-    overflow: 'hidden',
+  controlBtnText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
+  startMarker: {
+    backgroundColor: Colors.navy,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: Colors.white,
   },
-  batteryGuideHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing[2],
+  startMarkerText: { fontSize: 16 },
+
+  courseBadge: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
     paddingHorizontal: Spacing[3],
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: '#6366F1',
+    zIndex: 10,
   },
-  batteryGuideHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[1],
-  },
-  batteryGuideIcon: {
-    fontSize: FontSize.xs,
-  },
-  batteryGuideTitle: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.amber,
-  },
-  batteryGuideToggleBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: Radius.sm,
-    backgroundColor: 'rgba(255, 153, 0, 0.15)',
-  },
-  batteryGuideToggleText: {
-    fontSize: FontSize.xs - 1,
-    color: Colors.amber,
-    fontWeight: '700',
-  },
-  batteryGuideBody: {
-    paddingHorizontal: Spacing[3],
-    paddingBottom: Spacing[3],
-    paddingTop: Spacing[1],
-    gap: Spacing[2],
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 153, 0, 0.12)',
-  },
-  batteryGuideDesc: {
-    fontSize: FontSize.xs,
-    color: Colors.white,
-    lineHeight: 17,
-  },
-  batteryGuideSteps: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: Radius.sm,
-    padding: Spacing[2],
-    gap: 4,
-  },
-  batteryGuideStepItem: {
-    fontSize: FontSize.xs,
-    color: Colors.gray400,
-    lineHeight: 16,
-  },
-  boldWhite: {
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  boldAmber: {
-    fontWeight: '700',
-    color: Colors.amber,
-  },
-  batteryGuideActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  batteryGuideOpenBtn: {
-    backgroundColor: Colors.amber,
-    borderRadius: Radius.sm,
-    paddingVertical: 6,
-    paddingHorizontal: Spacing[3],
-  },
-  batteryGuideOpenBtnText: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.navyDark,
-  },
-  batteryGuideModalBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: Spacing[2],
-  },
-  batteryGuideModalBtnText: {
-    fontSize: FontSize.xs,
-    color: Colors.amber,
-    fontWeight: '600',
-  },
+  courseBadgeText: { color: Colors.white, fontSize: FontSize.xs, fontWeight: '700' },
 });

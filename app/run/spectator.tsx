@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform, Alert, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,8 @@ import { Button } from '../../src/components/Button';
 import { issueSocketToken } from '../../src/api/auth';
 import { getSpectatorSetupContent, SPECTATOR_SETUP_FALLBACK } from '../../src/api/content';
 import { useScreenContent } from '../../src/hooks/useScreenContent';
+
+import { AVAILABLE_COURSES } from '../../src/constants/courses';
 
 export default function SpectatorSetupScreen() {
   const [groupId, setGroupId] = useState('');
@@ -66,6 +68,29 @@ export default function SpectatorSetupScreen() {
             autoFocus
           />
           <Text style={styles.hint}>{content.groupCode.hint}</Text>
+
+          {/* 추천 코스 퀵 선택 */}
+          <View style={styles.quickCourseSection}>
+            <Text style={styles.quickCourseLabel}>추천 코스 바로가기</Text>
+            {AVAILABLE_COURSES.map((course) => {
+              const active = groupId.trim().toLowerCase() === course.groupId.toLowerCase();
+              return (
+                <TouchableOpacity
+                  key={course.id}
+                  style={[styles.quickCourseChip, active && styles.quickCourseChipActive]}
+                  onPress={() => setGroupId(course.groupId)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`추천 코스 ${course.name} 선택`}
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.quickCourseChipText, active && styles.quickCourseChipTextActive]}>
+                    {course.emoji} {course.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         <Button
@@ -121,6 +146,37 @@ const styles = StyleSheet.create({
     color: Colors.mutedForeground,
     marginBottom: Spacing[3],
     lineHeight: 16,
+  },
+  quickCourseSection: {
+    marginTop: -Spacing[1],
+    marginBottom: Spacing[3],
+    gap: Spacing[1],
+  },
+  quickCourseLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.gray400,
+  },
+  quickCourseChip: {
+    backgroundColor: Colors.navyDark,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: '#4F46E5',
+    paddingVertical: 10,
+    paddingHorizontal: Spacing[3],
+    alignItems: 'center',
+  },
+  quickCourseChipActive: {
+    backgroundColor: 'rgba(79, 70, 229, 0.25)',
+    borderColor: '#6366F1',
+  },
+  quickCourseChipText: {
+    color: '#818CF8',
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
+  quickCourseChipTextActive: {
+    color: Colors.white,
   },
   watchBtn: { marginTop: Spacing[2] },
 });
